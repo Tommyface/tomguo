@@ -21,6 +21,7 @@ import 'lan_screen.dart';
 import 'models.dart';
 import 'remote_widgets.dart';
 import 'dramax_card.dart';
+import 'design_tokens.dart';
 import 'widgets.dart';
 import 'vip_icon.dart';
 import 'settings_screen.dart';
@@ -856,20 +857,67 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Flexible(
-                            child: Text(
-                              _group.name,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 18,
-                                letterSpacing: .3,
-                                color: Theme.of(context).colorScheme.tertiary,
+                          // v5.1：DramaX 品牌标识（红黄渐变标记 + 字标），站源组名降为副标题。
+                          Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [DramaX.brand, Color(0xFFFF6B47)],
                               ),
+                              borderRadius: BorderRadius.circular(DramaX.rMd),
+                            ),
+                            child: const Icon(
+                              Icons.play_arrow_rounded,
+                              color: Colors.white,
+                              size: 18,
                             ),
                           ),
+                          const SizedBox(width: 8),
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              RichText(
+                                text: TextSpan(
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 17,
+                                    letterSpacing: -.3,
+                                  ),
+                                  children: [
+                                    TextSpan(
+                                      text: 'Drama',
+                                      style: TextStyle(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface,
+                                      ),
+                                    ),
+                                    TextSpan(
+                                      text: 'X',
+                                      style: TextStyle(color: DramaX.brand),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 110),
+                                child: Text(
+                                  _group.name,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                           if (_sourceGroups.length > 1)
-                            const Icon(Icons.expand_more_rounded),
+                            const Icon(Icons.expand_more_rounded, size: 18),
                         ],
                       ),
                     ),
@@ -916,6 +964,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         ? null
                         : _openRankings,
                     icon: const Icon(Icons.leaderboard_outlined),
+                  ),
+                  // v5.1：投屏 / 设备互联入口，复用现成的 LAN 同步能力。
+                  IconButton(
+                    key: const ValueKey('open-cast'),
+                    tooltip: '投屏 / 设备互联',
+                    onPressed: () => openLanSync(context),
+                    icon: const Icon(Icons.cast_rounded),
+                    color: DramaX.brand,
                   ),
                   if (!_showRecommendations &&
                       widget.store.canDownload &&
@@ -1247,6 +1303,54 @@ class _HomeScreenState extends State<HomeScreen> {
                   icon: const Icon(Icons.delete_outline_rounded, size: 20),
                 ),
               ],
+            ),
+          ),
+        // v5.1：DramaX 红渐变站源状态条（路径 A 融合技法），点击直达站源管理。
+        if (widget.store.sources.isNotEmpty && !_searchVisible)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 2, 16, 0),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _manageSources,
+                borderRadius: BorderRadius.circular(DramaX.rMd),
+                child: Container(
+                  height: 30,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [DramaX.brand, Color(0xFFFF6B47)],
+                    ),
+                    borderRadius: BorderRadius.circular(DramaX.rMd),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.bolt_rounded,
+                        color: Colors.white,
+                        size: 15,
+                      ),
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: Text(
+                          '已接入 ${widget.store.sources.length} 个站源 · 点击切换可查看更多',
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
         CatalogFilters(

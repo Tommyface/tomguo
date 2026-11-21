@@ -370,7 +370,8 @@ class LocalStore extends ChangeNotifier {
 
   String get themeMode {
     final value = _configurationError == null ? _string('themeMode') : null;
-    return {'light', 'dark', 'system'}.contains(value) ? value! : 'system';
+    // v5.1：默认深色以对齐 DramaX 设计稿；老用户已存偏好仍被尊重。
+    return {'light', 'dark', 'system'}.contains(value) ? value! : 'dark';
   }
 
   bool get autoExport => !locked && (_bool('autoExport') ?? false);

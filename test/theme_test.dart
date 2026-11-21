@@ -36,7 +36,7 @@ void main() {
     'theme survives restart and backup, with compatible old backups',
     () async {
       final store = await localStore();
-      expect(store.themeMode, 'system');
+      expect(store.themeMode, 'dark');
       await store.setThemeMode('light');
       final restored = LocalStore(store.preferences);
       expect(restored.themeMode, 'light');
@@ -61,7 +61,7 @@ void main() {
   );
 
   testWidgets(
-    'default theme follows the system from bootstrap through browsing',
+    'default theme is dark; system mode still follows brightness',
     (tester) async {
       phone(tester);
       addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
@@ -69,12 +69,20 @@ void main() {
       tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
       await tester.pumpWidget(DuanjuApp(repository: repository));
       await tester.pump();
+      // v5.1：默认深色以对齐 DramaX 设计稿。
       expect(
         tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
-        ThemeMode.system,
+        ThemeMode.dark,
       );
       final store = await localStore();
       await tester.pumpWidget(DuanjuApp(repository: repository, store: store));
+      await tester.pumpAndSettle();
+      expect(
+        Theme.of(tester.element(find.byType(HomeScreen))).brightness,
+        Brightness.dark,
+      );
+      // 用户主动切回「跟随系统」后，仍按系统亮度跟随。
+      await store.setThemeMode('system');
       await tester.pumpAndSettle();
       for (final brightness in [Brightness.dark, Brightness.light]) {
         tester.platformDispatcher.platformBrightnessTestValue = brightness;
