@@ -151,7 +151,8 @@ void main() {
       );
       await tester.pumpAndSettle();
       Size? catalogSize;
-      for (var tab = 0; tab < 3; tab++) {
+      // v5：只比对「发现 / 追剧」两个网格页；tab2 榜单为独立榜单卡布局，不在此列。
+      for (var tab = 0; tab < 2; tab++) {
         if (tab > 0) {
           final destination = layout.$3
               ? find.byKey(ValueKey('tv-nav-$tab'))
@@ -159,7 +160,7 @@ void main() {
               ? find.byKey(ValueKey('bottom-nav-$tab'))
               : find.descendant(
                   of: find.byType(NavigationRail),
-                  matching: find.text(tab == 1 ? '追剧' : '最近观看'),
+                  matching: find.text('追剧'),
                 );
           await tester.tap(destination);
           await tester.pumpAndSettle();

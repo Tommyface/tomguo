@@ -45,6 +45,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   static const _recommendationCategory = 'app:recommendations';
+  // v5 四 tab：发现 / 追剧 / 榜单 / 设置。用常量统一语义，避免魔法数字散落。
+  static const int tabDiscover = 0;
+  static const int tabFollow = 1;
+  static const int tabRanking = 2;
+  static const int tabSettings = 3;
   final _search = TextEditingController();
   final _scroll = ScrollController();
   Timer? _debounce;
@@ -675,9 +680,11 @@ class _HomeScreenState extends State<HomeScreen> {
     _selectedDramas.clear();
   });
 
-  /// 连点「最近观看」6 次弹出站源密码锁（用于启用 / 关闭密码功能）。
+  /// 连点「追剧」6 次弹出站源密码锁（用于启用 / 关闭密码功能）。
+  /// v5：原触发点为「最近观看」，该 tab 被「榜单」取代后迁至「追剧」，
+  /// 功能本身保留（最近观看内容并入追剧页的「继续观看」区）。
   void _onNavSelected(int tab) {
-    if (tab == 2) {
+    if (tab == tabFollow) {
       if (_recentTaps.register(tab)) {
         _openSourceGate();
         return;
@@ -1038,9 +1045,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           for (final entry in [
                             (Icons.explore_rounded, '发现'),
                             (Icons.bookmark_rounded, '追剧'),
-                            (Icons.history_rounded, '最近观看'),
-                            if (widget.store.canDownload)
-                              (Icons.download_rounded, '下载'),
+                            (Icons.leaderboard_rounded, '榜单'),
+                            (Icons.settings_outlined, '设置'),
                           ].indexed)
                             Padding(
                               padding: const EdgeInsets.only(bottom: 14),
@@ -1076,47 +1082,58 @@ class _HomeScreenState extends State<HomeScreen> {
                         label: Text('追剧'),
                       ),
                       NavigationRailDestination(
-                        icon: Icon(Icons.history_rounded),
-                        label: Text('最近观看'),
+                        icon: Icon(Icons.leaderboard_outlined),
+                        selectedIcon: Icon(Icons.leaderboard_rounded),
+                        label: Text('榜单'),
                       ),
-                      if (widget.store.canDownload)
-                        NavigationRailDestination(
-                          icon: Icon(Icons.download_outlined),
-                          selectedIcon: Icon(Icons.download_rounded),
-                          label: Text('下载'),
-                        ),
+                      NavigationRailDestination(
+                        icon: Icon(Icons.settings_outlined),
+                        selectedIcon: Icon(Icons.settings_rounded),
+                        label: Text('设置'),
+                      ),
                     ],
                   ),
                   const VerticalDivider(width: 1, thickness: 1),
                 ],
                 Expanded(
-                  child: _tab == 0
-                      ? widget.store.sources.isEmpty
-                            ? const StatusPanel(
-                                title: '暂无可用站源',
-                                message: '请联系管理员为当前用户开放站源。',
-                              )
-                            : _catalog(selectionInBody: desktop || television)
-                      : _tab == 3
-                      ? DownloadsScreen(
-                          repository: widget.repository,
-                          store: widget.store,
-                          embedded: true,
-                        )
-                      : SavedLibrary(
-                          key: ValueKey('saved-tab-$_tab'),
-                          repository: widget.repository,
-                          store: widget.store,
-                          history: _tab == 2,
-                          onOpen: _openDrama,
-                          onContinue: (drama) =>
-                              _openDrama(drama, resume: true),
-                          onDownload:
-                              widget.repository.supportsDownloads &&
-                                  widget.store.canDownload
-                              ? (drama) => _openDrama(drama, download: true)
-                              : null,
-                        ),
+                  child: switch (_tab) {
+                    tabDiscover => widget.store.sources.isEmpty
+                        ? StatusPanel(
+                            icon: Icons.power_off_outlined,
+                            title: '暂无可用站源',
+                            message: '请联系管理员，或到「设置 → 播放源插件」导入插件。',
+                            action: '去导入插件',
+                            onRetry: () => _changeTab(tabSettings),
+                          )
+                        : _catalog(selectionInBody: desktop || television),
+                    tabFollow => SavedLibrary(
+                        key: const ValueKey('saved-tab-follow'),
+                        repository: widget.repository,
+                        store: widget.store,
+                        history: false,
+                        onOpen: _openDrama,
+                        onContinue: (drama) =>
+                            _openDrama(drama, resume: true),
+                        onDownload:
+                            widget.repository.supportsDownloads &&
+                                    widget.store.canDownload
+                                ? (drama) => _openDrama(drama, download: true)
+                                : null,
+                      ),
+                    tabRanking => RankingsScreen(
+                        repository: widget.repository,
+                        store: widget.store,
+                        initialGroup: _group.id,
+                        embedded: true,
+                      ),
+                    tabSettings => SettingsScreen(
+                        repository: widget.repository,
+                        store: widget.store,
+                        embedded: true,
+                        onOpenHistory: () => _changeTab(tabFollow),
+                      ),
+                    _ => const SizedBox.shrink(),
+                  },
                 ),
               ],
             ),
@@ -1140,15 +1157,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       label: '追剧',
                     ),
                     NavigationDestination(
-                      icon: Icon(Icons.history_rounded),
-                      label: '最近观看',
+                      icon: Icon(Icons.leaderboard_outlined),
+                      selectedIcon: Icon(Icons.leaderboard_rounded),
+                      label: '榜单',
                     ),
-                    if (widget.store.canDownload)
-                      NavigationDestination(
-                        icon: Icon(Icons.download_outlined),
-                        selectedIcon: Icon(Icons.download_rounded),
-                        label: '下载',
-                      ),
+                    NavigationDestination(
+                      icon: Icon(Icons.settings_outlined),
+                      selectedIcon: Icon(Icons.settings_rounded),
+                      label: '设置',
+                    ),
                   ],
                 ),
         );

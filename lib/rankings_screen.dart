@@ -14,10 +14,13 @@ class RankingsScreen extends StatefulWidget {
     required this.repository,
     required this.store,
     required this.initialGroup,
+    this.embedded = false,
   });
   final AppRepository repository;
   final LocalStore store;
   final String initialGroup;
+  /// v5：作为底部 tab 内嵌时只返回内容区，不另起 Scaffold / AppBar。
+  final bool embedded;
 
   @override
   State<RankingsScreen> createState() => _RankingsScreenState();
@@ -180,41 +183,50 @@ class _RankingsScreenState extends State<RankingsScreen> {
                   item.drama.vip),
         )
         .toList();
-    return Scaffold(
-      appBar: AppBar(
-        title: PopupMenuButton<SourceGroup>(
-          tooltip: '切换榜单站源',
-          enabled: groups.length > 1,
-          onSelected: (group) =>
-              _select(_boards.firstWhere((board) => board.groupId == group.id)),
-          itemBuilder: (_) => [
-            for (final group in groups)
-              PopupMenuItem(value: group, child: Text(group.name)),
-          ],
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _board == null
-                    ? '榜单'
-                    : '${SourceSite.byId(_board!.source).groupName}榜单',
-              ),
-              if (groups.length > 1) const Icon(Icons.expand_more_rounded),
-            ],
+    // v5：站源切换 + 刷新在两种模式下复用。
+    Widget titleBar() => PopupMenuButton<SourceGroup>(
+      tooltip: '切换榜单站源',
+      enabled: groups.length > 1,
+      onSelected: (group) =>
+          _select(_boards.firstWhere((board) => board.groupId == group.id)),
+      itemBuilder: (_) => [
+        for (final group in groups)
+          PopupMenuItem(value: group, child: Text(group.name)),
+      ],
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            _board == null
+                ? '榜单'
+                : '${SourceSite.byId(_board!.source).groupName}榜单',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
           ),
-        ),
-        actions: [
-          RefreshAction(
-            loading: _loading || _more,
-            tooltip: '更新榜单',
-            onPressed: _board == null ? _initialize : () => _load(force: true),
-          ),
+          if (groups.length > 1) const Icon(Icons.expand_more_rounded),
         ],
       ),
+    );
+    Widget refreshButton() => RefreshAction(
+      loading: _loading || _more,
+      tooltip: '更新榜单',
+      onPressed: _board == null ? _initialize : () => _load(force: true),
+    );
+    // v5：内嵌为 tab 时去掉独立 AppBar，把站源切换与刷新移到内容顶部。
+    return Scaffold(
+      appBar: widget.embedded
+          ? null
+          : AppBar(title: titleBar(), actions: [refreshButton()]),
       body: SafeArea(
         top: false,
         child: Column(
           children: [
+            if (widget.embedded)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 6, 8, 2),
+                child: Row(
+                  children: [Expanded(child: titleBar()), refreshButton()],
+                ),
+              ),
             if (boards.isNotEmpty)
               CatalogFilters(
                 key: ValueKey('ranking-boards-${_board!.groupId}'),

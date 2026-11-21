@@ -188,13 +188,13 @@ void main() {
                         label: '追剧',
                       ),
                       const NavigationDestination(
-                        icon: Icon(Icons.history),
-                        label: '最近观看',
+                        icon: Icon(Icons.leaderboard_outlined),
+                        label: '榜单',
                       ),
                       if (count == 4)
                         const NavigationDestination(
-                          icon: Icon(Icons.download_outlined),
-                          label: '下载',
+                          icon: Icon(Icons.settings_outlined),
+                          label: '设置',
                         ),
                     ],
                   ),
@@ -218,7 +218,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(selected, i);
         }
-        expect(find.text('最近观看'), findsOneWidget);
+        expect(find.text('榜单'), findsOneWidget);
         semantics.dispose();
         expect(tester.takeException(), isNull);
       },

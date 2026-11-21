@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'core_bridge.dart';
 import 'app_theme.dart';
+import 'design_tokens.dart';
 import 'background_downloads.dart';
 import 'local_store.dart';
 import 'profiles_screen.dart';
@@ -33,9 +34,15 @@ class SettingsScreen extends StatefulWidget {
     super.key,
     required this.repository,
     required this.store,
+    this.embedded = false,
+    this.onOpenHistory,
   });
   final AppRepository repository;
   final LocalStore store;
+  /// v5：作为底部 tab 内嵌时只返回内容区，不另起 Scaffold / AppBar。
+  final bool embedded;
+  /// v5：从设置页跳回「最近观看」（原独立 tab 的入口，并入追剧页）。
+  final VoidCallback? onOpenHistory;
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
@@ -136,14 +143,127 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: widget.store,
-    builder: (_, _) => Scaffold(
-      appBar: AppBar(title: const Text('设置与备份')),
-      body: Center(
+    builder: (_, _) {
+      final body = Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 720),
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              // v5：内嵌为 tab 时补一个标题（非内嵌模式由 AppBar 提供）。
+              if (widget.embedded)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 6),
+                  child: Text(
+                    '设置',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              // v5①：空态引导——无可用站源时把用户导向插件入口。
+              if (widget.store.sources.isEmpty)
+                Card(
+                  key: const ValueKey('settings-empty-source-guide'),
+                  color: DramaX.warn.withAlpha(28),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    side: BorderSide(color: DramaX.warn.withAlpha(90)),
+                  ),
+                  child: ListTile(
+                    leading: Icon(Icons.info_outline, color: DramaX.warn),
+                    title: Text(
+                      '暂无可用站源',
+                      style: TextStyle(color: DramaX.warn, fontWeight: FontWeight.w700),
+                    ),
+                    subtitle: const Text('联系管理员，或从下方导入播放源插件'),
+                    trailing: const Text('去导入', style: TextStyle(color: DramaX.warn)),
+                    onTap: () => Navigator.push<void>(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => ModulesScreen(
+                          repository: widget.repository,
+                          store: widget.store,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              // v5②：播放源插件入口首屏前置（核心差异化），保留原「站源模块」项作为详配。
+              Card(
+                key: const ValueKey('settings-plugin-entry'),
+                clipBehavior: Clip.antiAlias,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Ink(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        DramaX.ok.withAlpha(60),
+                        DramaX.purple.withAlpha(50),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: ListTile(
+                    leading: Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [DramaX.ok, Color(0xFF28A745)],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.extension_rounded, color: Colors.white),
+                    ),
+                    title: Row(
+                      children: [
+                        const Text(
+                          '播放源插件',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: DramaX.brand,
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          child: const Text(
+                            'NEW',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    subtitle: const Text('导入 / 管理播放源插件，扩展可用片源与线路'),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => Navigator.push<void>(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => ModulesScreen(
+                          repository: widget.repository,
+                          store: widget.store,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              if (widget.onOpenHistory != null)
+                ListTile(
+                  key: const ValueKey('settings-recent-watch-entry'),
+                  leading: const Icon(Icons.history_rounded),
+                  title: const Text('最近观看'),
+                  subtitle: const Text('查看观看记录与继续播放'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: widget.onOpenHistory,
+                ),
               ListTile(
                 key: const ValueKey('lan-settings'),
                 leading: const Icon(Icons.devices_rounded),
@@ -313,8 +433,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
         ),
-      ),
-    ),
+      );
+      if (widget.embedded) return body;
+      return Scaffold(
+        appBar: AppBar(title: const Text('设置与备份')),
+        body: body,
+      );
+    },
   );
 }
 
