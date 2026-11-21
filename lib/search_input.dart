@@ -3,7 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import 'app_theme.dart';
+import 'design_tokens.dart';
 
 class SearchInput extends StatefulWidget {
   const SearchInput({
@@ -149,13 +149,13 @@ class _SearchInputState extends State<SearchInput> {
           submitted();
           if (!_selected) _submit(value);
         },
-        style: const TextStyle(fontSize: 12, color: CinemaTokens.dxT1),
+        style: const TextStyle(fontSize: 12, color: DramaX.t1),
         decoration: InputDecoration(
           hintText: widget.hint,
-          hintStyle: const TextStyle(fontSize: 12, color: CinemaTokens.dxT3),
+          hintStyle: const TextStyle(fontSize: 12, color: DramaX.t3),
           // DramaX：圆角胶囊搜索框，填充用三级背景。
           filled: true,
-          fillColor: CinemaTokens.dxBg3,
+          fillColor: DramaX.bg3,
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(vertical: 10),
           border: OutlineInputBorder(
@@ -168,12 +168,12 @@ class _SearchInputState extends State<SearchInput> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(18),
-            borderSide: const BorderSide(color: CinemaTokens.dxBrand, width: 1.2),
+            borderSide: const BorderSide(color: DramaX.brand, width: 1.2),
           ),
           prefixIcon: const Icon(
             Icons.search_rounded,
             size: 18,
-            color: CinemaTokens.dxT3,
+            color: DramaX.t3,
           ),
           suffixIcon: Row(
             mainAxisSize: MainAxisSize.min,

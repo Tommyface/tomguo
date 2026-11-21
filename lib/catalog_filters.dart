@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import 'app_layout.dart';
-import 'app_theme.dart';
+import 'design_tokens.dart';
 import 'models.dart';
 import 'remote_widgets.dart';
 
@@ -93,7 +93,7 @@ class _CatalogFiltersState extends State<CatalogFilters> {
                               ),
                               selected: entry.id == widget.category,
                               showCheckmark: false,
-                              selectedColor: CinemaTokens.dxBrand,
+                              selectedColor: DramaX.brand,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 15,
                                 vertical: 7,
@@ -114,7 +114,7 @@ class _CatalogFiltersState extends State<CatalogFilters> {
                               ),
                               side: BorderSide(
                                 color: entry.id == widget.category
-                                    ? CinemaTokens.dxBrand
+                                    ? DramaX.brand
                                     : Theme.of(context)
                                         .colorScheme
                                         .outlineVariant,

@@ -1,55 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// 影院编辑风（Cinematic Editorial）设计令牌。
-///
-/// 全部使用系统字体与纯色值，零外部资源、零网络依赖，可完全离线使用。
-abstract final class CinemaTokens {
-  // ---------- DramaX 设计稿色板（与 design_tokens.dart 的 DramaX 一致） ----------
-  /// 五级背景分层。
-  static const dxBg0 = Color(0xFF000000);
-  static const dxBg1 = Color(0xFF0C0C0E);
-  static const dxBg2 = Color(0xFF151517);
-  static const dxBg3 = Color(0xFF1D1D20);
-  static const dxCard = Color(0xFF1A1A1D);
-  static const dxLine = Color(0xFF2B2B30);
-
-  /// 文本三级。
-  static const dxT1 = Color(0xFFFFFFFF);
-  static const dxT2 = Color(0xFF98989F);
-  static const dxT3 = Color(0xFF66666D);
-
-  /// 品牌红（当前状态）与 CTA 黄（下一步动作）。
-  static const dxBrand = Color(0xFFFF2D4B);
-  static const dxBrand2 = Color(0xFFFF5F79);
-  static const dxCta = Color(0xFFFFC21A);
-  static const dxCtaText = Color(0xFF1A1A1A);
-  static const dxOk = Color(0xFF34C759);
-  static const dxWarn = Color(0xFFFF9F0A);
-  static const dxInfo = Color(0xFF5FA8FF);
-
-  /// 落日琥珀金 —— 全局唯一强调色（60-30-10 中的 10，因稀有而有力）。
-  static const amber = Color(0xFFF6C86B);
-  static const amberBright = Color(0xFFFFDA8C);
-  static const amberDim = Color(0xFFB98F3E);
-
-  /// 暖橙红 —— 延续项目既有品牌主色，避免品牌断层。
-  static const ember = Color(0xFFFF664F);
-
-  /// 深炭底 —— 带暖色相，非纯黑（纯黑会丢失层次）。
-  static const ink = Color(0xFF101114);
-  static const inkRaised = Color(0xFF1A1A20);
-
-  /// 衬线标题字体族：用通用 serif 族（Android/iOS/桌面均能映射），
-  /// 比写死 'Noto Serif SC' 这类多数设备不存在的具体名字可靠得多。
-  /// 仅用于标题，正文保持无衬线以保证可读性。
-  static const displayFamily = 'serif';
-  static const displayFallback = <String>[
-    'Songti SC',
-    'STSong',
-    'SimSun',
-  ];
-}
+import 'design_tokens.dart';
 
 abstract final class AppTheme {
   static final light = _theme(Brightness.light);
@@ -85,12 +37,12 @@ abstract final class AppTheme {
 
   static ThemeData _theme(Brightness brightness) {
     final dark = brightness == Brightness.dark;
-    final background = dark ? CinemaTokens.dxBg1 : const Color(0xFFFAF8F6);
+    final background = dark ? DramaX.bg1 : const Color(0xFFFAF8F6);
     // DramaX 色板：品牌红只用于「当前状态」，CTA 黄只用于「下一步动作」。
     final scheme = ColorScheme.fromSeed(
-      seedColor: dark ? CinemaTokens.dxBrand : CinemaTokens.ember,
+      seedColor: DramaX.brand,
       brightness: brightness,
-      primary: dark ? CinemaTokens.dxBrand : const Color(0xFFAD3826),
+      primary: dark ? DramaX.brand : const Color(0xFFAD3826),
       onPrimary: Colors.white,
       primaryContainer: dark
           ? const Color(0xFF4A1220)
@@ -99,17 +51,17 @@ abstract final class AppTheme {
           ? const Color(0xFFFFD9E0)
           : const Color(0xFF4B160D),
       // 黄只给 CTA，不给选中态。
-      tertiary: dark ? CinemaTokens.dxCta : const Color(0xFF8A6100),
-      surface: dark ? CinemaTokens.dxBg2 : Colors.white,
-      onSurface: dark ? CinemaTokens.dxT1 : const Color(0xFF252328),
-      onSurfaceVariant: dark ? CinemaTokens.dxT2 : const Color(0xFF68636C),
+      tertiary: dark ? DramaX.cta : const Color(0xFF8A6100),
+      surface: dark ? DramaX.bg2 : Colors.white,
+      onSurface: dark ? DramaX.t1 : const Color(0xFF252328),
+      onSurfaceVariant: dark ? DramaX.t2 : const Color(0xFF68636C),
       outline: dark ? const Color(0xFF4A4A52) : const Color(0xFF7C757D),
-      outlineVariant: dark ? CinemaTokens.dxLine : const Color(0xFFE3DFDC),
-      surfaceContainerLowest: dark ? CinemaTokens.dxBg0 : Colors.white,
-      surfaceContainerLow: dark ? CinemaTokens.dxBg1 : const Color(0xFFF7F3F0),
-      surfaceContainer: dark ? CinemaTokens.dxCard : const Color(0xFFF2EEEB),
+      outlineVariant: dark ? DramaX.line : const Color(0xFFE3DFDC),
+      surfaceContainerLowest: dark ? DramaX.bg0 : Colors.white,
+      surfaceContainerLow: dark ? DramaX.bg1 : const Color(0xFFF7F3F0),
+      surfaceContainer: dark ? DramaX.card : const Color(0xFFF2EEEB),
       surfaceContainerHigh: dark
-          ? CinemaTokens.dxBg3
+          ? DramaX.bg3
           : const Color(0xFFEDE8E5),
       surfaceContainerHighest: dark
           ? const Color(0xFF232327)
@@ -117,8 +69,8 @@ abstract final class AppTheme {
       surfaceTint: Colors.transparent,
     );
 
-    // 以 Material 3 默认主题为底，仅覆盖标题层级 —— 正文保持无衬线，
-    // 标题改用衬线（宋体系）营造电影海报 / 杂志排版质感。
+    // 以 Material 3 默认主题为底，仅覆盖标题层级的字号 / 字重 / 行高。
+    // 字体沿用系统无衬线（设计稿语言），正文与标题一致，不引入衬线族。
     final base = ThemeData(
       useMaterial3: true,
       brightness: brightness,
@@ -132,8 +84,6 @@ abstract final class AppTheme {
       double spacing = -0.4,
     }) =>
         (src ?? const TextStyle()).copyWith(
-          fontFamily: CinemaTokens.displayFamily,
-          fontFamilyFallback: CinemaTokens.displayFallback,
           fontSize: size,
           fontWeight: weight,
           height: height,
@@ -160,7 +110,7 @@ abstract final class AppTheme {
       scaffoldBackgroundColor: background,
       textTheme: textTheme,
       appBarTheme: AppBarTheme(
-        backgroundColor: dark ? CinemaTokens.dxBg1 : background,
+        backgroundColor: dark ? DramaX.bg1 : background,
         foregroundColor: scheme.onSurface,
         titleTextStyle: textTheme.titleLarge?.copyWith(
           color: scheme.onSurface,
@@ -193,7 +143,7 @@ abstract final class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: CinemaTokens.amber, width: 1.5),
+          borderSide: BorderSide(color: DramaX.brand, width: 1.5),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(

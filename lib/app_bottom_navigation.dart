@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'app_theme.dart';
+import 'design_tokens.dart';
 
 class AppBottomNavigation extends StatelessWidget {
   const AppBottomNavigation({
@@ -19,7 +19,7 @@ class AppBottomNavigation extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     // DramaX：选中态用品牌红，未选中用三级灰。
-    final accent = CinemaTokens.dxBrand;
+    final accent = DramaX.brand;
     return Material(
       color: const Color(0xFF08080A),
       child: SafeArea(

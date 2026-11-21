@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 
 import 'core_bridge.dart';
 import 'app_layout.dart';
-import 'app_theme.dart';
+import 'design_tokens.dart';
 import 'models.dart';
 import 'remote_widgets.dart';
 
@@ -155,7 +155,7 @@ class DramaCover extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(radius),
                   border: Border.all(
-                    color: CinemaTokens.dxCta.withValues(alpha: .5),
+                    color: DramaX.cta.withValues(alpha: .5),
                     width: 1.5,
                   ),
                 ),
@@ -169,7 +169,7 @@ class DramaCover extends StatelessWidget {
               child: Text(
                 '共 ${drama.episodes} 集',
                 style: const TextStyle(
-                  color: CinemaTokens.dxCta,
+                  color: DramaX.cta,
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
                   shadows: [Shadow(color: Colors.black87, blurRadius: 3)],
