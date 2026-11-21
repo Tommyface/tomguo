@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'app_layout.dart';
 import 'core_bridge.dart';
 import 'cross_source.dart';
+import 'source_sheet.dart';
 import 'download_picker.dart';
 import 'downloads_screen.dart';
 import 'local_store.dart';
@@ -231,7 +232,7 @@ class _DetailScreenState extends State<DetailScreen> {
   }
 
   Future<void> _crossSource() async {
-    final picked = await showCrossSourceSheet(
+    final picked = await showSourceSheet(
       context,
       repository: widget.repository,
       drama: widget.drama,

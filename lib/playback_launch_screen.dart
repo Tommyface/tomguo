@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'core_bridge.dart';
 import 'cross_source.dart';
+import 'source_sheet.dart';
 import 'follow_state.dart';
 import 'local_store.dart';
 import 'models.dart';
@@ -62,7 +63,7 @@ Future<void> openPlaybackDirectly(
       );
       if (!context.mounted) return;
       if (choice == 'cross') {
-        final picked = await showCrossSourceSheet(
+        final picked = await showSourceSheet(
           context,
           repository: repository,
           drama: mergedDrama,

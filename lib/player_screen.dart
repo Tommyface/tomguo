@@ -14,10 +14,12 @@ import 'app_orientation.dart';
 import 'app_theme.dart';
 import 'core_bridge.dart';
 import 'cross_source.dart';
+import 'source_sheet.dart';
 import 'diary_service.dart';
 import 'luna_exo_player.dart';
 import 'danmaku_controller.dart';
 import 'danmaku_overlay.dart';
+import 'player_hud.dart';
 import 'download_picker.dart';
 import 'downloads_screen.dart';
 import 'follow_state.dart';
@@ -117,6 +119,19 @@ class _PlayerScreenState extends State<PlayerScreen>
   bool _foreground = true;
   bool _playIntent = true;
   bool _showControlsOnPlaybackReady = true;
+
+  /// HUD 显示的当前源名称。
+  String get _sourceLabel {
+    final source = widget.detail.drama.source;
+    if (source.isEmpty) return '当前源';
+    return SourceSite.byId(source).name;
+  }
+
+  /// HUD 显示的延迟：本机解码的播放没有网络往返，用首帧耗时近似。
+  int get _sourceLatency => _firstFrameMs ?? 0;
+
+  int? _firstFrameMs;
+  DateTime _openStartedAt = DateTime.now();
   bool _pendingError = false;
   bool _pictureInPictureSupported = false;
   bool _pictureInPictureActive = false;
@@ -475,6 +490,7 @@ class _PlayerScreenState extends State<PlayerScreen>
         _panelOpen) {
       return;
     }
+    _openStartedAt = DateTime.now();
     _interactions.cancel();
     final rawRatio = _aspectRatio.isFinite && _aspectRatio > 0
         ? _aspectRatio
@@ -1065,9 +1081,12 @@ class _PlayerScreenState extends State<PlayerScreen>
         _attachLanPlayback();
         _health.reset();
         await _interactions.applySpeed();
+        // 记录首帧耗时，给 HUD 显示「当前源响应」用。
+        final opened = DateTime.now().difference(_openStartedAt).inMilliseconds;
         if (mounted && !_closed && ticket == _generation) {
           setState(() {
             _loading = false;
+            _firstFrameMs = opened;
           });
           _danmaku.setPlan(plan);
           _syncDanmaku();
@@ -1110,7 +1129,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   }
 
   Future<void> _crossSource() async {
-    final picked = await showCrossSourceSheet(
+    final picked = await showSourceSheet(
       context,
       repository: widget.repository,
       drama: widget.detail.drama,
@@ -1864,6 +1883,12 @@ class _PlayerScreenState extends State<PlayerScreen>
                           tooltip: '退出全屏',
                           onPressed: _rotate,
                           icon: const Icon(Icons.arrow_back_rounded),
+                        ),
+                        const SizedBox(width: 4),
+                        PlayerSourceHud(
+                          sourceLabel: _sourceLabel,
+                          latencyMs: _sourceLatency,
+                          activeBars: _error == null ? 4 : 2,
                         ),
                         const Spacer(),
                         TextButton(

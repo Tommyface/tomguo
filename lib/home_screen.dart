@@ -20,6 +20,7 @@ import 'local_store.dart';
 import 'lan_screen.dart';
 import 'models.dart';
 import 'remote_widgets.dart';
+import 'dramax_card.dart';
 import 'widgets.dart';
 import 'vip_icon.dart';
 import 'settings_screen.dart';
@@ -754,12 +755,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final following = widget.store.following(drama.id);
     final canSelect =
         widget.store.canDownload && widget.repository.supportsDownloads;
-    return DramaTile(
+    return DramaXCard(
       key: ValueKey(drama.id),
       drama: drama,
       repository: widget.repository,
-      focusNode: focusNode,
-      onFocus: onFocus,
       onTap: () => _selectionMode ? _selectDrama(drama) : _openDrama(drama),
       onLongPress: canSelect ? () => _selectDrama(drama) : null,
       onMore: () => _dramaActions(drama),
@@ -1359,7 +1358,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   16,
                                 ),
                                 sliver: SliverGrid(
-                                  gridDelegate: dramaGridDelegate(
+                                  gridDelegate: dramaXGridDelegate(
                                     context,
                                     constraints.maxWidth - 2 * padding,
                                   ),

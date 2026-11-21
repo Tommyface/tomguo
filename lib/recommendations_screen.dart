@@ -7,6 +7,7 @@ import 'core_bridge.dart';
 import 'local_store.dart';
 import 'models.dart';
 import 'playback_launch_screen.dart';
+import 'dramax_card.dart';
 import 'widgets.dart';
 
 class RecommendationsScreen extends StatefulWidget {
@@ -183,7 +184,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
                         SliverPadding(
                           padding: const EdgeInsets.all(16),
                           sliver: SliverGrid(
-                            gridDelegate: dramaGridDelegate(
+                            gridDelegate: dramaXGridDelegate(
                               context,
                               constraints.maxWidth - 32,
                             ),
@@ -192,7 +193,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
                               index,
                             ) {
                               final drama = _items[index];
-                              return DramaTile(
+                              return DramaXCard(
                                 key: ValueKey(drama.id),
                                 drama: drama,
                                 repository: widget.repository,
