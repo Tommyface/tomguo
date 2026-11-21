@@ -85,7 +85,7 @@ class _CatalogFiltersState extends State<CatalogFilters> {
                                       ? FontWeight.w800
                                       : FontWeight.w600,
                                   color: entry.id == widget.category
-                                      ? CinemaTokens.ink
+                                      ? Colors.white
                                       : Theme.of(context)
                                           .colorScheme
                                           .onSurfaceVariant,
@@ -93,20 +93,28 @@ class _CatalogFiltersState extends State<CatalogFilters> {
                               ),
                               selected: entry.id == widget.category,
                               showCheckmark: false,
-                              selectedColor: CinemaTokens.amber,
+                              selectedColor: CinemaTokens.dxBrand,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 15,
+                                vertical: 7,
+                              ),
+                              visualDensity: VisualDensity.compact,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
                               labelStyle: TextStyle(
                                 fontWeight: entry.id == widget.category
                                     ? FontWeight.w800
                                     : FontWeight.w600,
                                 color: entry.id == widget.category
-                                    ? CinemaTokens.ink
+                                    ? Colors.white
                                     : Theme.of(context)
                                         .colorScheme
                                         .onSurfaceVariant,
                               ),
                               side: BorderSide(
                                 color: entry.id == widget.category
-                                    ? CinemaTokens.amber
+                                    ? CinemaTokens.dxBrand
                                     : Theme.of(context)
                                         .colorScheme
                                         .outlineVariant,

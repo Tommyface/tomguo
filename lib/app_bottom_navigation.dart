@@ -18,10 +18,10 @@ class AppBottomNavigation extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    // 影院编辑风：选中态用琥珀金，与主色暖橙红形成品牌双色。
-    final accent = CinemaTokens.amber;
+    // DramaX：选中态用品牌红，未选中用三级灰。
+    final accent = CinemaTokens.dxBrand;
     return Material(
-      color: theme.scaffoldBackgroundColor,
+      color: const Color(0xFF08080A),
       child: SafeArea(
         top: false,
         child: DecoratedBox(
@@ -57,25 +57,6 @@ class AppBottomNavigation extends StatelessWidget {
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                // 顶部指示条：选中时由暖橙红渐变到琥珀金，并轻微加宽。
-                                AnimatedContainer(
-                                  duration: const Duration(milliseconds: 220),
-                                  curve: Curves.easeOutCubic,
-                                  width: index == selectedIndex ? 26 : 0,
-                                  height: 3,
-                                  decoration: BoxDecoration(
-                                    gradient: index == selectedIndex
-                                        ? const LinearGradient(colors: [
-                                            CinemaTokens.ember,
-                                            CinemaTokens.amber,
-                                          ])
-                                        : null,
-                                    color: index == selectedIndex
-                                        ? null
-                                        : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(1.5),
-                                  ),
-                                ),
                                 const SizedBox(height: 6),
                                 // 图标：选中时轻微放大，给出克制的触感反馈。
                                 AnimatedScale(
@@ -84,7 +65,7 @@ class AppBottomNavigation extends StatelessWidget {
                                   curve: Curves.easeOutCubic,
                                   child: IconTheme(
                                     data: IconThemeData(
-                                      size: 24,
+                                      size: 22,
                                       color: index == selectedIndex
                                           ? accent
                                           : colors.onSurfaceVariant,
@@ -102,7 +83,7 @@ class AppBottomNavigation extends StatelessWidget {
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 10,
                                     height: 1.2,
                                     fontWeight: index == selectedIndex
                                         ? FontWeight.w700

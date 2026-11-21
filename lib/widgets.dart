@@ -155,7 +155,7 @@ class DramaCover extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(radius),
                   border: Border.all(
-                    color: CinemaTokens.amber.withValues(alpha: .5),
+                    color: CinemaTokens.dxCta.withValues(alpha: .5),
                     width: 1.5,
                   ),
                 ),
@@ -169,7 +169,7 @@ class DramaCover extends StatelessWidget {
               child: Text(
                 '共 ${drama.episodes} 集',
                 style: const TextStyle(
-                  color: CinemaTokens.amber,
+                  color: CinemaTokens.dxCta,
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
                   shadows: [Shadow(color: Colors.black87, blurRadius: 3)],
