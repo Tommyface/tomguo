@@ -15,10 +15,11 @@ import (
 
 type moduleStatus struct {
 	moduleManifest
-	Installed bool   `json:"installed"`
-	Builtin   bool   `json:"builtin,omitempty"`
-	Error     string `json:"error,omitempty"`
-	Root      string `json:"root,omitempty"`
+	Installed bool     `json:"installed"`
+	Builtin   bool     `json:"builtin,omitempty"`
+	Error     string   `json:"error,omitempty"`
+	Root      string   `json:"root,omitempty"`
+	Warnings  []string `json:"warnings,omitempty"`
 }
 
 func (engine *nativeEngine) listModules() []moduleStatus {
@@ -34,10 +35,14 @@ func (engine *nativeEngine) listModules() []moduleStatus {
 			continue
 		}
 		seen[manifest.ID] = true
-		out = append(out, moduleStatus{
+		status := moduleStatus{
 			moduleManifest: manifest, Installed: true,
 			Root: filepath.Join(moduleRoot(engine.directory), manifest.ID),
-		})
+		}
+		if module := moduleSource(manifest.ID); module != nil {
+			status.Warnings = module.Warnings()
+		}
+		out = append(out, status)
 	}
 	sort.SliceStable(out, func(i, j int) bool {
 		if out[i].Builtin != out[j].Builtin {
@@ -115,7 +120,13 @@ func (engine *nativeEngine) installModule(zipPath string) (moduleStatus, error) 
 	if _, err := LoadModules(engine.directory); err != nil {
 		return moduleStatus{}, err
 	}
-	return moduleStatus{moduleManifest: manifest, Installed: true, Root: target}, nil
+	status := moduleStatus{moduleManifest: manifest, Installed: true, Root: target}
+	if module := moduleSource(manifest.ID); module != nil {
+		// 用重新注册后的清单回报，capabilities 已是过滤后的结果。
+		status.moduleManifest = module.manifest
+		status.Warnings = module.Warnings()
+	}
+	return status, nil
 }
 
 func (engine *nativeEngine) removeModule(id string) error {
@@ -129,6 +140,8 @@ func (engine *nativeEngine) removeModule(id string) error {
 	moduleRegistry.Lock()
 	delete(moduleRegistry.modules, id)
 	moduleRegistry.Unlock()
+	// 卸载即清空该模块的存储，避免残留令牌与设备标识。
+	DropModuleStorage(id)
 	target := filepath.Join(moduleRoot(engine.directory), id)
 	if err := os.RemoveAll(target); err != nil {
 		return err

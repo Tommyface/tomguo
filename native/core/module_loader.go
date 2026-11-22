@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 
@@ -15,10 +16,24 @@ import (
 
 var moduleIDPattern = regexp.MustCompile(`^[a-z0-9_\-]{1,32}$`)
 
+// moduleUnknownCapabilityFatal 控制未知 capabilities 的处理策略。
+// false → 忽略未知项并记告警（默认：模块可以按新能力先行发布，旧应用照常可用）
+// true  → 拒绝加载（只在需要与规范严格对齐时打开）
+var moduleUnknownCapabilityFatal = false
+
 type jsModule struct {
 	manifest moduleManifest
 	program  *goja.Program
 	active   *jsProvider
+	warnings []string
+}
+
+// Warnings 返回加载期的非致命问题，供站源状态与日志展示。
+func (module *jsModule) Warnings() []string {
+	if module == nil {
+		return nil
+	}
+	return module.warnings
 }
 
 // moduleRegistry 保存已加载的模块，key 为模块 id。
@@ -30,6 +45,31 @@ var moduleRegistry = struct {
 // moduleRoot 返回模块目录：<dataDir>/modules
 func moduleRoot(dataDir string) string {
 	return filepath.Join(dataDir, "modules")
+}
+
+// moduleVersionRoot 返回某个模块的版本根目录：<dataDir>/modules/<id>/versions
+func moduleVersionRoot(dataDir, id string) string {
+	return filepath.Join(moduleRoot(dataDir), id, "versions")
+}
+
+// moduleActiveDir 返回模块当前生效版本目录；没有版本目录时回退到扁平结构。
+func moduleActiveDir(dataDir, id string) string {
+	versionRoot := moduleVersionRoot(dataDir, id)
+	entries, err := os.ReadDir(versionRoot)
+	if err != nil {
+		return filepath.Join(moduleRoot(dataDir), id)
+	}
+	var versions []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			versions = append(versions, entry.Name())
+		}
+	}
+	if len(versions) == 0 {
+		return filepath.Join(moduleRoot(dataDir), id)
+	}
+	sort.Strings(versions)
+	return filepath.Join(versionRoot, versions[len(versions)-1])
 }
 
 // LoadModules 扫描模块目录并注册全部合法模块。
@@ -99,6 +139,13 @@ func moduleSource(id string) *jsModule {
 }
 
 func readModule(directory string) (*jsModule, error) {
+	// 传入模块根目录时，按版本目录规则定位当前生效版本。
+	if _, err := os.Stat(filepath.Join(directory, moduleManifestFile)); err != nil {
+		parts := strings.Split(filepath.ToSlash(directory), "/")
+		if len(parts) > 0 {
+			directory = moduleActiveDir(filepath.Dir(filepath.Dir(directory)), parts[len(parts)-1])
+		}
+	}
 	raw, err := os.ReadFile(filepath.Join(directory, moduleManifestFile))
 	if err != nil {
 		return nil, err
@@ -137,10 +184,26 @@ func parseModule(raw, code []byte) (*jsModule, error) {
 	if manifest.Adult == nil {
 		return nil, errors.New("模块缺少 adult 声明")
 	}
-	for _, name := range manifest.Capabilities {
-		if _, known := moduleCapabilityNames[name]; !known {
-			return nil, fmt.Errorf("未知的模块能力 %q", name)
-		}
+	if err := checkModuleAPI(manifest); err != nil {
+		return nil, err
+	}
+	knownCapabilities, unknownCapabilities := filterModuleCapabilities(manifest.Capabilities)
+	if len(unknownCapabilities) > 0 && moduleUnknownCapabilityFatal {
+		return nil, fmt.Errorf("未知的模块能力 %q", unknownCapabilities[0])
+	}
+	// 只保留当前版本认识的能力，下游不会按未知能力发起调用。
+	manifest.Capabilities = knownCapabilities
+	// 内容摘要校验：必须在校验通过后再编译，否则等于执行未校验的代码。
+	digestWarning, err := verifyModuleDigest(manifest, code)
+	if err != nil {
+		return nil, err
+	}
+	warnings := make([]string, 0, 2)
+	if digestWarning != "" {
+		warnings = append(warnings, digestWarning)
+	}
+	if len(unknownCapabilities) > 0 {
+		warnings = append(warnings, "模块声明了当前版本不认识的能力："+strings.Join(unknownCapabilities, "、")+"，已忽略")
 	}
 	// CommonJS 包装：模块代码里用 module.exports，需要注入 module/exports/host。
 	wrapped := "(function(module, exports, host){" + string(code) + "\n})"
@@ -148,7 +211,37 @@ func parseModule(raw, code []byte) (*jsModule, error) {
 	if err != nil {
 		return nil, fmt.Errorf("模块脚本编译失败：%w", err)
 	}
-	module := &jsModule{manifest: manifest, program: program}
+	module := &jsModule{manifest: manifest, program: program, warnings: warnings}
 	module.active = newJSProvider(module)
 	return module, nil
+}
+
+// checkModuleAPI 校验模块声明的最低接口版本。
+// minApi 为 0 表示不声明；大于当前接口版本说明模块比应用新，只能拒绝。
+func checkModuleAPI(manifest moduleManifest) error {
+	if manifest.MinAPI < 0 {
+		return errors.New("模块的 minApi 不能为负数")
+	}
+	if manifest.MinAPI > moduleAPIVersion {
+		return fmt.Errorf("模块要求接口版本 %d，当前应用支持 %d，请先升级应用", manifest.MinAPI, moduleAPIVersion)
+	}
+	return nil
+}
+
+// filterModuleCapabilities 按声明顺序拆分已知与未知能力，去重并忽略空白项。
+func filterModuleCapabilities(declared []string) (known []string, unknown []string) {
+	seen := make(map[string]bool, len(declared))
+	for _, raw := range declared {
+		name := strings.TrimSpace(raw)
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		if _, ok := moduleCapabilityNames[name]; ok {
+			known = append(known, name)
+		} else {
+			unknown = append(unknown, name)
+		}
+	}
+	return known, unknown
 }
