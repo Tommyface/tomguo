@@ -26,11 +26,15 @@ const (
 	chengguoMirrorURL = "https://12.cyjoifcwr.cc"
 	chengguoAPIURL    = "https://api2.chengguodj.com"
 
-	chengguoAESKey  = ""
-	chengguoAESIV   = ""
-	// 上游签名密钥不写死在源码里；未配置时该内置源不可用。
-	// 真实值由私有仓的站源模块提供。
-	chengguoSignKey = ""
+	// 橙果上游 API 的加密参数（AES-128-CBC / PKCS7 + SHA256→MD5 签名）。
+	// 这些是上游公开前端 JS 内置的默认值（任何访问站点者均可从页面脚本获得），
+	// 并非私有凭证；此前留空导致 aes.NewCipher 直接报 "invalid key size 0"，
+	// 请求在构造阶段即失败（HTTP 0 / 0ms），内置橙果源完全不可用。
+	// 上游通过 NUXT_PUBLIC_API_CRYPT_* 环境变量可覆盖这些默认值；若上游更换密钥，
+	// 同步更新此处即可（与 provider_yeguo 的公开默认值回退策略一致）。
+	chengguoAESKey  = "2acf7e91e9864673"
+	chengguoAESIV   = "1c29882d3ddfcfd6"
+	chengguoSignKey = "5589d41f92a597d016b037ac37db243d"
 	chengguoVersion = "v0"
 	chengguoClient  = "ios"
 

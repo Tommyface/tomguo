@@ -29,6 +29,7 @@ import 'profiles_screen.dart';
 import 'search_input.dart';
 import 'source_gate_dialog.dart';
 import 'source_gate_taps.dart';
+import 'source_switch_sheet.dart';
 import 'sources_screen.dart';
 import 'batch_download_screen.dart';
 import 'batch_downloads.dart';
@@ -265,6 +266,85 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_group.id != group.id) {
       _changeSource(group.sources.first, allSources: group.id == 'all');
     }
+  }
+
+  /// 左上角 DramaX 品牌标识（TV 下拉菜单复用，移动端同款内联在 appBar）。
+  Widget _sourceSwitchBrand() => SizedBox(
+    height: 48,
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [DramaX.brand, Color(0xFFFF6B47)],
+            ),
+            borderRadius: BorderRadius.circular(DramaX.rMd),
+          ),
+          child: const Icon(
+            Icons.play_arrow_rounded,
+            color: Colors.white,
+            size: 18,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            RichText(
+              text: TextSpan(
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 17,
+                  letterSpacing: -.3,
+                ),
+                children: [
+                  TextSpan(
+                    text: 'Drama',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                  TextSpan(text: 'X', style: TextStyle(color: DramaX.brand)),
+                ],
+              ),
+            ),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 110),
+              child: Text(
+                _group.name,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (_sourceGroups.length > 1)
+          const Icon(Icons.expand_more_rounded, size: 18),
+      ],
+    ),
+  );
+
+  /// 打开「全部站源」底部弹层（内置 / 导入分组网格），选中后切换站源组。
+  Future<void> _showSourceSwitchSheet() async {
+    final builtinIds = SourceSite.allValues.map((site) => site.id).toSet();
+    final picked = await showSourceSwitchSheet(
+      context,
+      groups: _sourceGroups,
+      currentGroupId: _group.id,
+      builtinIds: builtinIds,
+      onManage: () {
+        Navigator.pop(context);
+        _manageSources();
+      },
+    );
+    if (picked != null && mounted) _changeGroup(picked);
   }
 
   void _changeCategory(String category) {
@@ -833,7 +913,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   )
-                : _tab == 0
+                : _tab == 0 && television
                 ? PopupMenuButton<SourceGroup>(
                     key: const ValueKey('source-switch'),
                     tooltip: '切换站源',
@@ -852,6 +932,20 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                     ],
+                    child: _sourceSwitchBrand(),
+                  )
+                : _tab == 0
+                ? TextButton(
+                    key: const ValueKey('source-switch'),
+                    tooltip: '切换站源',
+                    onPressed: _sourceGroups.length > 1
+                        ? _showSourceSwitchSheet
+                        : null,
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
                     child: SizedBox(
                       height: 48,
                       child: Row(

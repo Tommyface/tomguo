@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import 'core_bridge.dart';
+import 'design_tokens.dart';
 import 'local_store.dart';
 import 'models.dart';
 import 'source_module.dart';
@@ -21,16 +22,39 @@ class ModulesScreen extends StatefulWidget {
   State<ModulesScreen> createState() => _ModulesScreenState();
 }
 
-class _ModulesScreenState extends State<ModulesScreen> {
+class _ModulesScreenState extends State<ModulesScreen>
+    with SingleTickerProviderStateMixin {
   List<SourceModule> _modules = const [];
   String? _error;
   bool _loading = true;
 
+  /// 分类：0=全部，1=内置，2=导入。
+  int _category = 0;
+  late final TabController _tabController;
+
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging && mounted) {
+        setState(() => _category = _tabController.index);
+      }
+    });
     _load();
   }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  List<SourceModule> get _visibleModules => switch (_category) {
+    1 => _modules.where((module) => module.builtin).toList(),
+    2 => _modules.where((module) => !module.builtin).toList(),
+    _ => _modules,
+  };
 
   Future<void> _load() async {
     setState(() {
@@ -161,6 +185,18 @@ class _ModulesScreenState extends State<ModulesScreen> {
             icon: const Icon(Icons.add),
           ),
         ],
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: [
+            Tab(text: '全部 (${_modules.length})'),
+            Tab(
+              text: '内置 (${_modules.where((m) => m.builtin).length})',
+            ),
+            Tab(
+              text: '导入 (${_modules.where((m) => !m.builtin).length})',
+            ),
+          ],
+        ),
       ),
       body: RefreshIndicator(
         onRefresh: _load,
@@ -216,18 +252,66 @@ class _ModulesScreenState extends State<ModulesScreen> {
         ],
       );
     }
+    final visible = _visibleModules;
+    if (visible.isEmpty) {
+      return ListView(
+        padding: const EdgeInsets.all(32),
+        children: [
+          Icon(
+            Icons.extension_off_outlined,
+            size: 48,
+            color: theme.colorScheme.outline,
+          ),
+          const SizedBox(height: 14),
+          Text(
+            _category == 1 ? '没有内置站源' : '还没有导入的站源',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _category == 1
+                ? '内置站源随应用分发，无需安装。'
+                : '在「设置 › 站源模块」用「+」选择模块压缩包即可导入。',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall,
+          ),
+        ],
+      );
+    }
     return ListView.separated(
-      itemCount: _modules.length,
+      itemCount: visible.length,
       separatorBuilder: (_, __) => const Divider(height: 1),
       itemBuilder: (context, index) {
-        final module = _modules[index];
+        final module = visible[index];
         final enabled = widget.store.enabledModules?.contains(module.id) ?? true;
         return ListTile(
           leading: const Icon(Icons.extension_outlined),
-          title: Text(module.name),
+          title: Row(
+            children: [
+              Flexible(child: Text(module.name, overflow: TextOverflow.ellipsis)),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: module.builtin
+                      ? DramaX.ok.withValues(alpha: .16)
+                      : DramaX.purple.withValues(alpha: .16),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  module.builtin ? '内置' : '导入',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: module.builtin ? DramaX.ok : DramaX.purple,
+                  ),
+                ),
+              ),
+            ],
+          ),
           subtitle: Text(
             [
-              if (module.builtin) '内置',
               module.id,
               if (module.version.isNotEmpty) 'v${module.version}',
               if (module.capabilities.isNotEmpty)
