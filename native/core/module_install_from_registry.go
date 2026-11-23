@@ -127,7 +127,63 @@ func (engine *nativeEngine) InstallFromRegistry(request registryInstallRequest) 
 	}, nil
 }
 
+// registryMirrorBases 是 ccwu.cc 不通时依次尝试的镜像前缀。
+// 只做域名替换，路径与文件名保持一致，摘要校验照旧由 VerifyEntryCode 兜底。
+var registryMirrorBases = []string{
+	"https://fastly.jsdelivr.net/gh/Tommyface/tomguo-app@main",
+	"https://gcore.jsdelivr.net/gh/Tommyface/tomguo-app@main",
+	"https://cdn.jsdelivr.net/gh/Tommyface/tomguo-app@main",
+}
+
+// mirrorCandidates 返回与 rawURL 等价的镜像地址；原地址不在列表里。
+func mirrorCandidates(rawURL string) []string {
+	parsed, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil || parsed.Host == "" {
+		return nil
+	}
+	if !strings.HasSuffix(strings.ToLower(parsed.Host), "ccwu.cc") {
+		return nil
+	}
+	path := strings.TrimPrefix(parsed.EscapedPath(), "/")
+	if path == "" {
+		return nil
+	}
+	out := make([]string, 0, len(registryMirrorBases))
+	for _, base := range registryMirrorBases {
+		out = append(out, base+"/"+path)
+	}
+	return out
+}
+
+// withMirrors 先试原地址，失败后依次试镜像，返回首个成功结果。
+func withMirrors[T any](rawURL string, fetch func(string) (T, error)) (T, error) {
+	value, err := fetch(rawURL)
+	if err == nil {
+		return value, nil
+	}
+	var lastErr error = err
+	for _, candidate := range mirrorCandidates(rawURL) {
+		mirrored, mirrorErr := fetch(candidate)
+		if mirrorErr == nil {
+			return mirrored, nil
+		}
+		lastErr = mirrorErr
+	}
+	var zero T
+	return zero, lastErr
+}
+
 func downloadRegistry(rawURL string, max int64) ([]byte, error) {
+	return withMirrors(rawURL, func(target string) ([]byte, error) {
+		return downloadRegistryOnce(target, max)
+	})
+}
+
+func downloadModuleZip(rawURL string) (string, error) {
+	return withMirrors(rawURL, downloadModuleZipOnce)
+}
+
+func downloadRegistryOnce(rawURL string, max int64) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), registryTimeout)
 	defer cancel()
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
@@ -152,7 +208,7 @@ func downloadRegistry(rawURL string, max int64) ([]byte, error) {
 	return data, nil
 }
 
-func downloadModuleZip(rawURL string) (string, error) {
+func downloadModuleZipOnce(rawURL string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), moduleZipTimeout)
 	defer cancel()
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)

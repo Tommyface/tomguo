@@ -79,6 +79,33 @@ String? missingSourceHint(Map<String, int> counts, String unit) {
   return total == 0 ? null : '有 $total $unit来自未安装的站源，在 设置 › 站源模块 安装后恢复显示';
 }
 
+/// 清单读取结果：实际连通的地址 + 条目。
+class RegistryFetch {
+  const RegistryFetch(this.url, this.entries);
+  final String url;
+  final List<RegistryEntry> entries;
+}
+
+/// 域名不通时依次尝试的镜像；zip 也由同一镜像提供。
+const _registryMirrorHosts = <String>[
+  'https://fastly.jsdelivr.net/gh/Tommyface/tomguo-app@main/tomguo/registry-cdn.json',
+  'https://gcore.jsdelivr.net/gh/Tommyface/tomguo-app@main/tomguo/registry-cdn.json',
+  'https://cdn.jsdelivr.net/gh/Tommyface/tomguo-app@main/tomguo/registry-cdn.json',
+];
+
+/// 给出与 [url] 等价的镜像地址列表（原地址排第一）。
+List<String> registryMirrors(String url) {
+  final trimmed = url.trim();
+  final out = <String>[];
+  final host = Uri.tryParse(trimmed)?.host ?? '';
+  if (host.endsWith('ccwu.cc')) {
+    out.addAll(_registryMirrorHosts);
+  } else if (host.contains('jsdelivr.net')) {
+    out.addAll(_registryMirrorHosts.where((item) => item != trimmed));
+  }
+  return out;
+}
+
 /// 模块清单里的一条可安装记录（只用于展示，安装由原生层做完整校验）。
 class RegistryEntry {
   const RegistryEntry({

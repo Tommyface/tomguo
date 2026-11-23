@@ -124,7 +124,7 @@ class _ModulesScreenState extends State<ModulesScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                for (final entry in registry)
+                for (final entry in registry.entries)
                   ListTile(
                     title: Text(entry.name),
                     subtitle: Text(
@@ -139,7 +139,7 @@ class _ModulesScreenState extends State<ModulesScreen> {
       );
       if (picked == null) return;
       final module = await widget.repository.installFromRegistry(
-        result.url,
+        registry.url,
         picked,
         includeAdult: result.includeAdult,
       );

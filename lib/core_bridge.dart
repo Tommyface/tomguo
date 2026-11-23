@@ -197,7 +197,7 @@ abstract class AppRepository {
     String moduleId, {
     bool includeAdult = false,
   }) async => throw AppFailure('当前环境不支持从清单安装');
-  Future<List<RegistryEntry>> fetchRegistry(String url) async =>
+  Future<RegistryFetch> fetchRegistry(String url) async =>
       throw AppFailure('当前环境不支持读取清单');
   Future<void> removeModule(String id) async =>
       throw AppFailure('当前环境不支持站源模块');
@@ -784,24 +784,45 @@ class NativeRepository extends AppRepository {
     return SourceModule.fromJson(data);
   }
 
+  /// 依次尝试候选地址：先用用户填的，失败再走镜像，返回真正连通的那个。
   @override
-  Future<List<RegistryEntry>> fetchRegistry(String url) async {
-    final parsed = Uri.tryParse(url);
-    if (parsed == null ||
-        parsed.scheme != 'https' ||
-        parsed.host.isEmpty) {
-      throw AppFailure('清单地址必须是 HTTPS');
+  Future<RegistryFetch> fetchRegistry(String url) async {
+    final candidates = <String>[url, ...registryMirrors(url)];
+    final failures = <String>[];
+    for (final candidate in candidates) {
+      final parsed = Uri.tryParse(candidate);
+      if (parsed == null || parsed.scheme != 'https' || parsed.host.isEmpty) {
+        failures.add('$candidate（不是 HTTPS 地址）');
+        continue;
+      }
+      try {
+        final response = await http
+            .get(parsed)
+            .timeout(const Duration(seconds: 20));
+        if (response.statusCode != 200) {
+          failures.add('$candidate（HTTP ${response.statusCode}）');
+          continue;
+        }
+        final body = jsonDecode(response.body);
+        final plugins = (body['plugins'] ?? body['modules'] ?? []) as List;
+        return RegistryFetch(candidate, [
+          for (final item in plugins)
+            RegistryEntry.fromJson(Map<String, dynamic>.from(item as Map)),
+        ]);
+      } catch (error) {
+        failures.add('$candidate（${_shortError(error)}）');
+      }
     }
-    final response = await http.get(parsed).timeout(const Duration(seconds: 20));
-    if (response.statusCode != 200) {
-      throw AppFailure('读取清单失败：HTTP ${response.statusCode}');
-    }
-    final body = jsonDecode(response.body);
-    final plugins = (body['plugins'] ?? body['modules'] ?? []) as List;
-    return [
-      for (final item in plugins)
-        RegistryEntry.fromJson(Map<String, dynamic>.from(item as Map)),
-    ];
+    throw AppFailure('清单地址都连不上：${failures.join('；')}');
+  }
+
+  static String _shortError(Object error) {
+    final text = error.toString();
+    if (text.contains('Connection reset')) return '连接被重置';
+    if (text.contains('TimeoutException')) return '超时';
+    if (text.contains('Failed host lookup')) return '域名解析失败';
+    if (text.contains('Connection refused')) return '连接被拒绝';
+    return text.length > 60 ? '${text.substring(0, 60)}…' : text;
   }
 
   @override
