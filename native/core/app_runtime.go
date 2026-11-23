@@ -126,6 +126,8 @@ type nativeInput struct {
 	Force            bool                    `json:"force"`
 	CustomSources    json.RawMessage         `json:"customSources"`
 	ModulePath       string                  `json:"modulePath"`
+	RegistryURL      string                  `json:"registryUrl"`
+	IncludeAdult     bool                    `json:"includeAdult"`
 }
 
 type nativeCatalogResult struct {
@@ -519,6 +521,14 @@ func nativeDispatch(input nativeInput) (any, error) {
 		return map[string]any{"items": engine.listModules()}, nil
 	case "installModule":
 		status, err := engine.installModule(input.ModulePath)
+		return status, err
+	case "installFromRegistry":
+		status, err := engine.InstallFromRegistry(registryInstallRequest{
+			RegistryURL:  input.RegistryURL,
+			ModuleID:     input.Source,
+			IncludeAdult: input.IncludeAdult,
+			Force:        input.Force,
+		})
 		return status, err
 	case "removeModule":
 		return true, engine.removeModule(input.Source)

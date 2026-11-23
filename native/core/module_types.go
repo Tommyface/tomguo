@@ -15,6 +15,7 @@ const (
 	moduleManifestFile = "manifest.json"
 	moduleEntryFile     = "main.js"
 	moduleEntryBytes  = 4 << 20
+	moduleVersionFile = ".version"
 	moduleInstanceMax = 4
 	moduleCallTimeout = 60 * time.Second
 	moduleQuickMs     = 5 * time.Second
@@ -28,6 +29,8 @@ type moduleManifest struct {
 	ID                string   `json:"id"`
 	Name              string   `json:"name"`
 	Version           string   `json:"version"`
+	MinAPI            int      `json:"minApi"`
+	MainSha256        string   `json:"mainSha256"`
 	Description       string   `json:"description"`
 	Runtime           string   `json:"runtime"`
 	API               int      `json:"api"`
@@ -103,6 +106,10 @@ type jsFetchRequest struct {
 	// ResolveIP 非空时，把连接目标改成该 IP，但 Host 头与 TLS SNI 仍用原域名。
 	// 用于绕开本地 DNS 污染（域名解析到假 IP）。
 	ResolveIP string `json:"resolveIP"`
+	// CacheKey 非空时启用跨模块共享缓存；同一 key 的请求只发一次。
+	CacheKey string `json:"cacheKey"`
+	// CacheTTLSec 是缓存有效期（秒）；0 表示使用应用默认时长。
+	CacheTTLSec int `json:"cacheTtlSec"`
 }
 
 type jsFetchResponse struct {

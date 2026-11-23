@@ -11,6 +11,7 @@ import (
 	"crypto/hmac"
 	"crypto/md5"
 	"crypto/rand"
+	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
@@ -28,6 +29,8 @@ func (p *jsProvider) hostObject(instance *jsInstance) *goja.Object {
 	id := p.module.manifest.ID
 	vm := instance.vm
 	host := vm.NewObject()
+	// 模块可返回的封面域名白名单；为空时不限制。
+	allowedCoverHosts := allowedModuleCoverHosts()
 
 	bytesOf := func(value goja.Value) []byte {
 		if text, ok := value.Export().(string); ok {
@@ -55,6 +58,10 @@ func (p *jsProvider) hostObject(instance *jsInstance) *goja.Object {
 		},
 		"fetch": func(request jsFetchRequest) (jsFetchResponse, error) {
 			return p.fetch(instance.ctx, request)
+		},
+		// 封面地址校验：只返回开关，模块自己决定如何降级。
+		"coverAllowed": func(url string) bool {
+			return moduleCoverHostAllowed(url, allowedCoverHosts)
 		},
 		"base64Encode": func(data goja.Value) string {
 			return base64.StdEncoding.EncodeToString(bytesOf(data))
@@ -182,11 +189,26 @@ func (p *jsProvider) hostObject(instance *jsInstance) *goja.Object {
 			}
 			return bytesValue(plain), nil
 		},
+		"sha1": func(data goja.Value) goja.Value {
+			sum := sha1.Sum(bytesOf(data))
+			return bytesValue(sum[:])
+		},
 		"resolveDNS": func(name string) ([]string, error) {
 			return resolveModuleDNS(instance.ctx, name)
 		},
 		"utf8": func(data goja.Value) string { return string(bytesOf(data)) },
 		"bytes": func(text string) goja.Value { return bytesValue([]byte(text)) },
+		// 模块私有存储：跨调用保留，按模块隔离，带 TTL 与配额。
+		"storageGet": func(key string) string {
+			value, _ := moduleStorageFor(id).Get(key)
+			return value
+		},
+		"storageSet": func(key, value string, ttlSec int) error {
+			return moduleStorageFor(id).Set(key, value, time.Duration(ttlSec)*time.Second)
+		},
+		"storageDelete": func(key string) {
+			moduleStorageFor(id).Delete(key)
+		},
 	}
 	for name, value := range members {
 		if err := host.Set(name, value); err != nil {
@@ -209,6 +231,12 @@ func moduleCBC(key, iv, data []byte) (cipher.Block, []byte, []byte, error) {
 
 // fetch 执行 JS 侧发起的请求，复用现有 HTTP 栈与限速器。
 func (p *jsProvider) fetch(ctx context.Context, request jsFetchRequest) (jsFetchResponse, error) {
+	// 发布页等共享入口：命中缓存直接返回，避免多个源重复拉同一个 URL。
+	if key := strings.TrimSpace(request.CacheKey); key != "" {
+		if cached, ok := moduleFetchCacheGet(key); ok {
+			return cached, nil
+		}
+	}
 	target := strings.TrimSpace(request.URL)
 	if !isProviderHTTPMediaURL(target) {
 		return jsFetchResponse{}, errors.New("请求地址必须是 http/https")
@@ -273,10 +301,14 @@ func (p *jsProvider) fetch(ctx context.Context, request jsFetchRequest) (jsFetch
 	if int64(len(data)) > limit {
 		return jsFetchResponse{}, errors.New("响应超出大小上限")
 	}
-	return jsFetchResponse{
+	result := jsFetchResponse{
 		Status: response.StatusCode, Headers: response.Header,
 		Body: string(data), BodyBase64: base64.StdEncoding.EncodeToString(data),
-	}, nil
+	}
+	if key := strings.TrimSpace(request.CacheKey); key != "" && response.StatusCode >= 200 && response.StatusCode < 300 {
+		moduleFetchCachePut(key, result, request.CacheTTLSec)
+	}
+	return result, nil
 }
 
 func moduleGCM(key, nonce []byte) (cipher.AEAD, []byte, error) {
