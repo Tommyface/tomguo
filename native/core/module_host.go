@@ -11,6 +11,7 @@ import (
 	"crypto/hmac"
 	"crypto/md5"
 	"crypto/rand"
+	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
@@ -187,6 +188,10 @@ func (p *jsProvider) hostObject(instance *jsInstance) *goja.Object {
 				return nil, errors.New("AES-GCM 校验失败")
 			}
 			return bytesValue(plain), nil
+		},
+		"sha1": func(data goja.Value) goja.Value {
+			sum := sha1.Sum(bytesOf(data))
+			return bytesValue(sum[:])
 		},
 		"resolveDNS": func(name string) ([]string, error) {
 			return resolveModuleDNS(instance.ctx, name)
