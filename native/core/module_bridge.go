@@ -13,6 +13,9 @@ type downloaderModuleHost struct {
 }
 
 func (h downloaderModuleHost) Do(request *http.Request, timeout time.Duration) (*http.Response, error) {
+	if host, ok := request.Context().Value(pinnedHostKey{}).(string); ok && host != "" {
+		return h.d.doPinnedRequest(request, timeout, host)
+	}
 	return h.d.doCatalogRequestWithTimeout(request, timeout)
 }
 

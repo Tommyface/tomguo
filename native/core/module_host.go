@@ -276,6 +276,8 @@ func (p *jsProvider) fetch(ctx context.Context, request jsFetchRequest) (jsFetch
 				port = "443"
 			}
 		}
+		prepared = prepared.WithContext(context.WithValue(prepared.Context(), pinnedHostKey{}, original))
+		prepared = prepared.WithContext(context.WithValue(prepared.Context(), pinnedAddressKey{}, pin))
 		prepared.URL.Host = net.JoinHostPort(pin, port)
 		prepared.Host = original
 	}
