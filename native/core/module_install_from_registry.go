@@ -81,7 +81,7 @@ func (engine *nativeEngine) InstallFromRegistry(request registryInstallRequest) 
 		return moduleStatus{}, fmt.Errorf("模块包地址无效：%w", err)
 	}
 
-	zipPath, err := downloadModuleZip(entry.Zip)
+	zipPath, err := downloadModuleZip(entry.Zip, moduleRoot(engine.directory))
 	if err != nil {
 		return moduleStatus{}, fmt.Errorf("模块包无法下载：%w", err)
 	}
@@ -179,8 +179,31 @@ func downloadRegistry(rawURL string, max int64) ([]byte, error) {
 	})
 }
 
-func downloadModuleZip(rawURL string) (string, error) {
-	return withMirrors(rawURL, downloadModuleZipOnce)
+func downloadModuleZip(rawURL, tempDir string) (string, error) {
+	return withMirrors(rawURL, func(target string) (string, error) {
+		return downloadModuleZipOnce(target, tempDir)
+	})
+}
+
+// moduleTempDir 选一个确实可写的临时目录：优先应用私有目录，失败再退回系统临时目录。
+func moduleTempDir(dataDir string) string {
+	for _, candidate := range []string{dataDir, os.TempDir()} {
+		if candidate == "" {
+			continue
+		}
+		if err := os.MkdirAll(candidate, 0o755); err != nil {
+			continue
+		}
+		probe, err := os.CreateTemp(candidate, "tomguo-probe-*")
+		if err != nil {
+			continue
+		}
+		name := probe.Name()
+		probe.Close()
+		os.Remove(name)
+		return candidate
+	}
+	return os.TempDir()
 }
 
 func downloadRegistryOnce(rawURL string, max int64) ([]byte, error) {
@@ -208,7 +231,7 @@ func downloadRegistryOnce(rawURL string, max int64) ([]byte, error) {
 	return data, nil
 }
 
-func downloadModuleZipOnce(rawURL string) (string, error) {
+func downloadModuleZipOnce(rawURL, tempDir string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), moduleZipTimeout)
 	defer cancel()
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
@@ -223,9 +246,9 @@ func downloadModuleZipOnce(rawURL string) (string, error) {
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return "", fmt.Errorf("HTTP %d", response.StatusCode)
 	}
-	temporary, err := os.CreateTemp("", "tomguo-module-*.zip")
+	temporary, err := os.CreateTemp(tempDir, "tomguo-module-*.zip")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("无法创建临时文件（%s）：%w", tempDir, err)
 	}
 	defer temporary.Close()
 	written, err := io.Copy(temporary, io.LimitReader(response.Body, moduleZipMax+1))
