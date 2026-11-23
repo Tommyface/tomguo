@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
@@ -191,6 +192,13 @@ abstract class AppRepository {
   Future<List<SourceModule>> modules() async => const [];
   Future<SourceModule> installModule(String path) async =>
       throw AppFailure('当前环境不支持站源模块');
+  Future<SourceModule> installFromRegistry(
+    String url,
+    String moduleId, {
+    bool includeAdult = false,
+  }) async => throw AppFailure('当前环境不支持从清单安装');
+  Future<List<RegistryEntry>> fetchRegistry(String url) async =>
+      throw AppFailure('当前环境不支持读取清单');
   Future<void> removeModule(String id) async =>
       throw AppFailure('当前环境不支持站源模块');
   Future<PlaybackPlan> resolve(Drama drama, Episode episode, {int quality = 0});
@@ -543,6 +551,7 @@ class NativeRepository extends AppRepository {
             'updateSystemProxy',
             'modules',
             'installModule',
+            'installFromRegistry',
             'removeModule',
           }.contains(action) ||
           action == 'workLease' && input['command'] == 'end' ||
@@ -772,6 +781,41 @@ class NativeRepository extends AppRepository {
   @override
   Future<SourceModule> installModule(String path) async {
     final data = await _call({'action': 'installModule', 'modulePath': path});
+    return SourceModule.fromJson(data);
+  }
+
+  @override
+  Future<List<RegistryEntry>> fetchRegistry(String url) async {
+    final parsed = Uri.tryParse(url);
+    if (parsed == null ||
+        parsed.scheme != 'https' ||
+        parsed.host.isEmpty) {
+      throw AppFailure('清单地址必须是 HTTPS');
+    }
+    final response = await http.get(parsed).timeout(const Duration(seconds: 20));
+    if (response.statusCode != 200) {
+      throw AppFailure('读取清单失败：HTTP ${response.statusCode}');
+    }
+    final body = jsonDecode(response.body);
+    final plugins = (body['plugins'] ?? body['modules'] ?? []) as List;
+    return [
+      for (final item in plugins)
+        RegistryEntry.fromJson(Map<String, dynamic>.from(item as Map)),
+    ];
+  }
+
+  @override
+  Future<SourceModule> installFromRegistry(
+    String url,
+    String moduleId, {
+    bool includeAdult = false,
+  }) async {
+    final data = await _call({
+      'action': 'installFromRegistry',
+      'registryUrl': url,
+      'source': moduleId,
+      'includeAdult': includeAdult,
+    });
     return SourceModule.fromJson(data);
   }
 

@@ -78,3 +78,27 @@ String? missingSourceHint(Map<String, int> counts, String unit) {
   final total = counts.values.fold(0, (sum, count) => sum + count);
   return total == 0 ? null : '有 $total $unit来自未安装的站源，在 设置 › 站源模块 安装后恢复显示';
 }
+
+/// 模块清单里的一条可安装记录（只用于展示，安装由原生层做完整校验）。
+class RegistryEntry {
+  const RegistryEntry({
+    required this.id,
+    required this.name,
+    required this.version,
+    required this.description,
+    required this.adult,
+  });
+  final String id;
+  final String name;
+  final String version;
+  final String description;
+  final bool adult;
+
+  factory RegistryEntry.fromJson(Map<String, dynamic> json) => RegistryEntry(
+    id: (json['id'] ?? '').toString(),
+    name: (json['name'] ?? json['id'] ?? '').toString(),
+    version: (json['version'] ?? '').toString(),
+    description: (json['description'] ?? '').toString(),
+    adult: json['adult'] == true,
+  );
+}

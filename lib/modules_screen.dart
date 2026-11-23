@@ -53,6 +53,110 @@ class _ModulesScreenState extends State<ModulesScreen> {
     }
   }
 
+  Future<void> _installFromUrl() async {
+    final controller = TextEditingController(
+      text: 'https://tommyfac.ccwu.cc/tomguo/registry.json',
+    );
+    final formKey = GlobalKey<FormState>();
+    final result = await showDialog<_RegistryInput>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('从清单地址安装'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: controller,
+                autofocus: true,
+                keyboardType: TextInputType.url,
+                decoration: const InputDecoration(
+                  labelText: '模块清单地址（HTTPS）',
+                  hintText: 'https://example.com/tomguo/registry.json',
+                ),
+                validator: (value) {
+                  final text = value?.trim() ?? '';
+                  if (!text.startsWith('https://')) return '必须使用 HTTPS 地址';
+                  if (Uri.tryParse(text)?.host.isEmpty ?? true) return '地址无效';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '可用地址：tommyfac / tommyface / tommyfa .ccwu.cc/tomguo/registry.json',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (formKey.currentState?.validate() ?? false) {
+                Navigator.pop(
+                  context,
+                  _RegistryInput(
+                    controller.text.trim(),
+                    widget.store.sourcesUnlocked,
+                  ),
+                );
+              }
+            },
+            child: const Text('读取并安装'),
+          ),
+        ],
+      ),
+    );
+    if (result == null) return;
+    try {
+      final registry = await widget.repository.fetchRegistry(result.url);
+      if (!mounted) return;
+      final picked = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('选择要安装的模块'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final entry in registry)
+                  ListTile(
+                    title: Text(entry.name),
+                    subtitle: Text(
+                      '${entry.id} · ${entry.version}${entry.adult ? ' · 成人' : ''}',
+                    ),
+                    onTap: () => Navigator.pop(context, entry.id),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+      if (picked == null) return;
+      final module = await widget.repository.installFromRegistry(
+        result.url,
+        picked,
+        includeAdult: result.includeAdult,
+      );
+      if (!mounted) return;
+      await _syncSourceSites();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('已安装 ${module.name}')));
+      await _load();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('安装失败：$error')));
+    }
+  }
+
   Future<void> _install() async {
     final picked = await FilePicker.pickFile(
       type: FileType.custom,
@@ -156,6 +260,11 @@ class _ModulesScreenState extends State<ModulesScreen> {
         title: const Text('站源模块'),
         actions: [
           IconButton(
+            tooltip: '从清单地址安装',
+            onPressed: _installFromUrl,
+            icon: const Icon(Icons.link),
+          ),
+          IconButton(
             tooltip: '安装模块',
             onPressed: _install,
             icon: const Icon(Icons.add),
@@ -208,6 +317,14 @@ class _ModulesScreenState extends State<ModulesScreen> {
           const SizedBox(height: 20),
           Center(
             child: FilledButton.icon(
+              onPressed: _installFromUrl,
+              icon: const Icon(Icons.link),
+              label: const Text('从清单地址安装'),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Center(
+            child: FilledButton.icon(
               onPressed: _install,
               icon: const Icon(Icons.add),
               label: const Text('选择模块压缩包'),
@@ -256,4 +373,10 @@ class _ModulesScreenState extends State<ModulesScreen> {
       },
     );
   }
+}
+
+class _RegistryInput {
+  const _RegistryInput(this.url, this.includeAdult);
+  final String url;
+  final bool includeAdult;
 }
