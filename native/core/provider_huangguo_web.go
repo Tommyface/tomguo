@@ -41,6 +41,12 @@ var (
 	reHuangguoWebEpisodes  = regexp.MustCompile(`(?s)"episodes":(\[.*?\]),"firstChapterId"`)
 	reHuangguoWebFree      = regexp.MustCompile(`(?s)"freeEpisodeCount":(\d{1,5})`)
 	reHuangguoWebCoverHost = regexp.MustCompile(`https://([a-z0-9.\-]+)/cf[0-9]+/`)
+	reHuangguoWebVideoSlug = regexp.MustCompile(`\\?"seoSlug\\?":\\?"([a-z0-9_-]{2,64})\\?"`)
+	reHuangguoRscPush      = regexp.MustCompile(`(?s)self\.__next_f\.push\(\[1,("(?:[^"\\]|\\.)*")\]`)
+	reHuangguoWebSeoSlug   = regexp.MustCompile(`\\?"seoSlug\\?":\\?"([a-z0-9_-]{2,64})\\?"`)
+	reHuangguoWebCover     = regexp.MustCompile(`\\?"cover\\?":\\?"((?:https?:\\?/\\?/[^"\\]+|cf[0-9]+/[^"\\]+))\\?"`)
+	reHuangguoWebName      = regexp.MustCompile(`\\?"title\\?":\\?"([^"\\]{1,200})\\?"`)
+	reHuangguoWebCurrent   = regexp.MustCompile(`\\?"currentEpisode\\?":(\d{1,5})`)
 
 	reHuangguoPublishEntry = regexp.MustCompile(`"name":"([^"]{2,20})"[^}]*?"path":"(https://[^"]+)"`)
 
@@ -167,29 +173,147 @@ func (d *Downloader) fetchHuangguoWebCatalog(ctx context.Context) ([]Drama, erro
 	return nil, lastErr
 }
 
+// huangguoWebJSONObjects 把页面里 RSC 载荷的 JSON 对象切开。
+// 载荷用 \" 转义，直接按花括号配对扫描即可，不依赖字段顺序。
+func huangguoWebJSONObjects(raw string) []string {
+	objects := make([]string, 0, 128)
+	seen := map[string]bool{}
+	// Next.js RSC 的每条 push 里含转义后的 JSON 片段；先逐层反转义，
+	// 再用带引号的字段正则直接扫整段字符串，不依赖对象边界配对。
+	payloads := []string{raw}
+	for _, match := range reHuangguoRscPush.FindAllStringSubmatch(raw, -1) {
+		payload := match[1]
+		for depth := 0; depth < 4; depth++ {
+			decoded, err := strconv.Unquote(`"` + payload + `"`)
+			if err != nil || decoded == payload {
+				break
+			}
+			payload = decoded
+		}
+		payloads = append(payloads, payload)
+	}
+	for _, payload := range payloads {
+		for _, pattern := range []*regexp.Regexp{reHuangguoWebSeoSlug, reHuangguoWebVideoSlug} {
+			for _, match := range pattern.FindAllStringSubmatch(payload, -1) {
+				if len(match) < 2 || seen[match[1]] {
+					continue
+				}
+				seen[match[1]] = true
+				objects = append(objects, match[1])
+			}
+		}
+	}
+	return objects
+}
+
+// huangguoWebCoverIndex 从首页载荷里取「剧标识 → 封面」。
+// 封面是相对图床路径（cf230705/image/…），主机名取页面里出现的绝对封面域名。
+func huangguoWebCoverIndex(rawHTML string) map[string]string {
+	host := ""
+	if m := reHuangguoWebCoverHost.FindStringSubmatch(rawHTML); len(m) == 2 {
+		host = "https://" + m[1] + "/"
+	}
+	index := map[string]string{}
+	payloads := []string{rawHTML}
+	for _, match := range reHuangguoRscPush.FindAllStringSubmatch(rawHTML, -1) {
+		payload := match[1]
+		for depth := 0; depth < 4; depth++ {
+			decoded, err := strconv.Unquote(`"` + payload + `"`)
+			if err != nil || decoded == payload {
+				break
+			}
+			payload = decoded
+		}
+		payloads = append(payloads, payload)
+	}
+	for _, payload := range payloads {
+		for _, match := range reHuangguoWebSeoSlug.FindAllStringSubmatchIndex(payload, -1) {
+			slug := payload[match[2]:match[3]]
+			window := payload[max(0, match[0]-1200):min(len(payload), match[1]+300)]
+			coverMatch := reHuangguoWebCover.FindStringSubmatch(window)
+			if len(coverMatch) != 2 {
+				continue
+			}
+			cover := strings.TrimSpace(coverMatch[1])
+			if cover == "" {
+				continue
+			}
+			if !strings.HasPrefix(cover, "http") {
+				if host == "" {
+					continue
+				}
+				cover = host + cover
+			}
+			index[slug] = cover
+		}
+	}
+	return index
+}
+
 func huangguoWebParseCatalog(rawHTML string) []Drama {
+	covers := huangguoWebCoverIndex(rawHTML)
+	names := map[string]string{}
+	episodes := map[string]int{}
+	payloads := []string{rawHTML}
+	for _, match := range reHuangguoRscPush.FindAllStringSubmatch(rawHTML, -1) {
+		payload := match[1]
+		for depth := 0; depth < 4; depth++ {
+			decoded, err := strconv.Unquote(`"` + payload + `"`)
+			if err != nil || decoded == payload {
+				break
+			}
+			payload = decoded
+		}
+		payloads = append(payloads, payload)
+	}
+	for _, payload := range payloads {
+		for _, match := range reHuangguoWebSeoSlug.FindAllStringSubmatchIndex(payload, -1) {
+			slug := payload[match[2]:match[3]]
+			window := payload[max(0, match[0]-1200):min(len(payload), match[1]+300)]
+			if name := reHuangguoWebName.FindStringSubmatch(window); len(name) == 2 {
+				names[slug] = cleanText(name[1])
+			}
+			if count := reHuangguoWebCurrent.FindStringSubmatch(window); len(count) == 2 {
+				if total, err := strconv.Atoi(count[1]); err == nil && total > 0 {
+					episodes[slug] = total
+				}
+			}
+		}
+	}
+
 	seen := map[string]bool{}
 	items := make([]Drama, 0, 32)
-	for _, match := range reHuangguoWebVideo.FindAllStringSubmatch(rawHTML, -1) {
-		slug := match[2]
-		title := cleanText(match[3])
+	appendItem := func(slug, title string) {
 		if !validHuangguoWebID(slug) || title == "" || seen[slug] {
-			continue
+			return
 		}
 		seen[slug] = true
-		items = append(items, Drama{
+		item := Drama{
 			ID:          providerDramaID(sourceHuangguoMain, slug),
 			Source:      sourceHuangguoMain,
 			SourceID:    slug,
 			Title:       title,
 			Name:        title,
+			Cover:       covers[slug],
+			CoverURL:    covers[slug],
 			ChannelName: "falpius.com",
-		})
+		}
+		if total := episodes[slug]; total > 0 {
+			item.TotalEpisode = total
+			item.EpisodeCount = total
+		}
+		items = append(items, item)
+	}
+
+	for _, match := range reHuangguoWebVideo.FindAllStringSubmatch(rawHTML, -1) {
+		appendItem(match[2], cleanText(match[3]))
+	}
+	for slug, title := range names {
+		appendItem(slug, title)
 	}
 	sort.SliceStable(items, func(i, j int) bool { return items[i].SourceID < items[j].SourceID })
 	return items
 }
-
 func (d *Downloader) fetchHuangguoWebDetail(ctx context.Context, sourceID string) (Drama, []Chapter, error) {
 	if !validHuangguoWebID(sourceID) {
 		return Drama{}, nil, errors.New("黄果主站剧集 ID 无效")
