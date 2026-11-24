@@ -196,6 +196,8 @@ abstract class AppRepository {
     String kind = '',
     String query = '',
     bool adultView = false,
+    String groupId = '',
+    bool refine = false,
   }) async => throw AppFailure('当前环境不支持站源整合');
   Future<List<AggregatedDrama>> aggregateSources(
     AggregatedDrama item, {
@@ -802,6 +804,8 @@ class NativeRepository extends AppRepository {
     String kind = '',
     String query = '',
     bool adultView = false,
+    String groupId = '',
+    bool refine = false,
   }) async {
     final data = await _call({
       'action': 'aggregateCatalog',
@@ -810,6 +814,8 @@ class NativeRepository extends AppRepository {
       'contentKind': kind,
       'query': query,
       'adultView': adultView,
+      'groupId': groupId,
+      'refine': refine,
     });
     return AggregatePage.fromJson(data);
   }

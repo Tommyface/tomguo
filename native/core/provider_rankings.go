@@ -92,6 +92,17 @@ func singlePageRankingBoard(board rankingBoard) bool {
 	return board.Source == sourceHuangguoAI || board.Source == sourceDSD
 }
 
+// nativeRankingBoardSupported 判断该榜单的站源在当前构建里有没有真实抓取实现。
+// 没有实现的榜单项不能在 UI 里出现，否则点了只会报错。
+func nativeRankingBoardSupported(board rankingBoard) bool {
+	switch board.Source {
+	case sourceHongguo, sourceHuangdou, sourceHuangju, sourceDuanju51:
+		return true
+	default:
+		return false
+	}
+}
+
 func rankingDramaWithoutImages(drama Drama) Drama {
 	drama.Cover, drama.CoverURL, drama.CoverURLSnake = nil, nil, nil
 	drama.Image, drama.ImageURL, drama.ImageURLSnake = nil, nil, nil

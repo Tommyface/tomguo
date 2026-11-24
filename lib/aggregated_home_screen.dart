@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'aggregated_detail_screen.dart';
@@ -65,6 +67,8 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
   String _warning = '';
   List<AggregatedDrama> _items = const [];
   Set<String> _adultSources = const {};
+  String _groupId = '';
+  int _loadSeq = 0;
 
   AggregateController get _ctl => widget.controller;
 
@@ -83,6 +87,8 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
   }
 
   void _onControllerChanged() {
+    _groupId = '';
+    _loadSeq++;
     setState(() => _items = const []);
     _load();
   }
@@ -115,9 +121,67 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
     return ids;
   }
 
+  /// 从 Go 侧已缓存的目录拼出首帧卡片（异步、不联网）。
+  Future<List<AggregatedDrama>> _cachedItems() async {
+    final byTitle = <String, AggregatedDrama>{};
+    for (final sourceId in _sourceIds.take(aggregateCacheFirstSources)) {
+      final CatalogPage page;
+      try {
+        page = await widget.repository.cached(sourceId);
+      } catch (_) {
+        continue;
+      }
+      if (!mounted) return const [];
+      for (final drama in page.items) {
+        final key = _normalizeTitle(drama.title);
+        if (key.isEmpty) continue;
+        final src = AggregatedSource(
+          source: sourceId,
+          sourceId: drama.sourceId,
+          dramaId: drama.id,
+          title: drama.title,
+          cover: drama.cover,
+          episodes: drama.episodes,
+          vip: drama.vip,
+        );
+        final existing = byTitle[key];
+        if (existing == null) {
+          byTitle[key] = AggregatedDrama(
+            key: key,
+            title: drama.title,
+            cover: drama.cover,
+            contentKind: _kindFromDrama(drama),
+            episodes: drama.episodes,
+            sourceCount: 1,
+            sources: [src],
+          );
+        } else {
+          final merged = <AggregatedSource>[...existing.sources, src];
+          byTitle[key] = AggregatedDrama(
+            key: key,
+            title: existing.title,
+            cover: existing.cover,
+            contentKind: existing.contentKind,
+            episodes: existing.episodes > drama.episodes ? existing.episodes : drama.episodes,
+            sourceCount: merged.length,
+            sources: merged,
+          );
+        }
+      }
+    }
+    return byTitle.values.toList();
+  }
+
+  static const int aggregateCacheFirstSources = 4;
+
   Future<void> _load({bool more = false}) async {
     if (more ? _loadingMore : _loading) return;
     if (more && !_hasMore) return;
+    final seq = ++_loadSeq;
+    final groupId = more || _groupId.isNotEmpty
+        ? _groupId
+        : 'agg-${DateTime.now().microsecondsSinceEpoch}';
+    if (!more) _groupId = groupId;
     setState(() {
       if (more) {
         _loadingMore = true;
@@ -128,14 +192,22 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
       }
     });
     final page = more ? _page + 1 : 1;
+    // 首帧先铺已缓存的各源目录，避免整屏转圈等待全部站源。
+    if (!more && page == 1 && _items.isEmpty) {
+      final cachedItems = await _cachedItems();
+      if (cachedItems.isNotEmpty && mounted && seq == _loadSeq) {
+        setState(() => _items = cachedItems);
+      }
+    }
     try {
       final result = await widget.repository.aggregateCatalog(
         sources: _sourceIds,
         page: page,
         kind: _ctl.kind,
         adultView: _ctl.adultView,
+        groupId: groupId,
       );
-      if (!mounted) return;
+      if (!mounted || seq != _loadSeq) return;
       setState(() {
         _items = more ? [..._items, ...result.items] : result.items;
         _page = result.page;
@@ -146,14 +218,40 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
             ? ''
             : '${result.failedSources.length} 个站源本轮未响应';
       });
+      // 首屏只等了部分源；同一 groupId 再取一次拿完整结果。
+      if (result.partial && !more && mounted) {
+        unawaited(_loadRefinement(groupId, seq));
+      }
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || seq != _loadSeq) return;
       setState(() {
         _error = error is AppFailure ? error.message : '$error';
         _loading = false;
         _loadingMore = false;
       });
     }
+  }
+
+  /// 后台补拉剩余站源；同组聚合只替换当前结果，不重复分页。
+  Future<void> _loadRefinement(String groupId, int seq) async {
+    try {
+      final result = await widget.repository.aggregateCatalog(
+        sources: _sourceIds,
+        page: 1,
+        kind: _ctl.kind,
+        adultView: _ctl.adultView,
+        groupId: groupId,
+        refine: true,
+      );
+      if (!mounted || seq != _loadSeq || result.partial) return;
+      setState(() {
+        _items = result.items;
+        _hasMore = result.hasMore;
+        _warning = result.failedSources.isEmpty
+            ? ''
+            : '${result.failedSources.length} 个站源本轮未响应';
+      });
+    } catch (_) {}
   }
 
   void _openItem(AggregatedDrama item) {

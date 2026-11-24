@@ -630,6 +630,8 @@ class AggregatePage {
     this.page = 1,
     this.totalSources = 0,
     this.failedSources = const {},
+    this.partial = false,
+    this.groupId = '',
   });
 
   final List<AggregatedDrama> items;
@@ -637,6 +639,8 @@ class AggregatePage {
   final int page;
   final int totalSources;
   final Map<String, String> failedSources;
+  final bool partial;
+  final String groupId;
 
   factory AggregatePage.fromJson(Map<String, dynamic> json) => AggregatePage(
     [
@@ -651,6 +655,8 @@ class AggregatePage {
           (key, value) => MapEntry('$key', '$value'),
         ) ??
         const {},
+    partial: json['partial'] == true,
+    groupId: json['groupId'] as String? ?? '',
   );
 }
 

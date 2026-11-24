@@ -132,6 +132,8 @@ type nativeInput struct {
 	AdultView        bool                    `json:"adultView"`
 	ContentKind      string                  `json:"contentKind"`
 	AggregateKey     string                  `json:"aggregateKey"`
+	GroupID          string                  `json:"groupId"`
+	Refine           bool                    `json:"refine"`
 }
 
 type nativeCatalogResult struct {
@@ -470,9 +472,12 @@ func nativeDispatch(input nativeInput) (any, error) {
 	case "rankingBoards":
 		boards := []rankingBoard{}
 		for _, board := range rankingBoards {
-			if nativeSourceAvailable(board.Source) {
-				boards = append(boards, board)
+			// 退役内置源与无榜单实现能力的源都不下发，避免点了没内容。
+			if isRetiredSource(board.Source) || !nativeSourceAvailable(board.Source) ||
+				!nativeRankingBoardSupported(board) {
+				continue
 			}
+			boards = append(boards, board)
 		}
 		return map[string]any{"items": boards}, nil
 	case "rankings":

@@ -277,6 +277,14 @@ class _RankingsScreenState extends State<RankingsScreen> {
                   ],
                 ),
               ),
+            if (!_loading && _boards.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text(
+                  '当前可用站源暂无榜单，可在「站源」中启用其他站源后再试。',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ),
             Expanded(
               child: _loading && items.isEmpty
                   ? Center(

@@ -44,6 +44,8 @@ type nativeAggregateResult struct {
 	Page          int                   `json:"page"`
 	TotalSources  int                   `json:"totalSources"`
 	FailedSources map[string]string     `json:"failedSources,omitempty"`
+	Partial       bool                  `json:"partial,omitempty"`
+	GroupID       string                `json:"groupId,omitempty"`
 }
 
 const (
@@ -151,6 +153,10 @@ func moduleManifestByID(id string) *moduleManifest {
 	return nil
 }
 
+// aggregatePriorityCount 是首屏优先拉取的站源数量。
+// 首屏只等这批源即可出卡片，剩余源在后台继续补，避免被慢源拖住。
+const aggregatePriorityCount = 4
+
 // aggregateSourceItems 并发拉取每个源的目录页；单源失败不影响整体。
 func (engine *nativeEngine) aggregateSourceItems(ctx context.Context, sources []string, page int, category, query string) (map[string][]nativeDrama, map[string]string) {
 	out := make(map[string][]nativeDrama, len(sources))
@@ -256,6 +262,32 @@ func (engine *nativeEngine) nativeAggregateCatalog(ctx context.Context, input na
 	if len(sources) == 0 {
 		sources = crossSourceOrder
 		sources = append(sources, moduleCrossSourceOrder()...)
+	}
+	// 首屏只等优先级高的前几路源，返回 partial=true；其余源后台继续取。
+	// 调用方拿到 partial 后可用同一 groupId 再发一次请求合并完整结果。
+	partial := len(sources) > aggregatePriorityCount && input.Page <= 1 &&
+		strings.TrimSpace(input.Query) == "" && !input.Refine
+	if partial {
+		first := append([]string{}, sources[:aggregatePriorityCount]...)
+		perSource, failed := engine.aggregateSourceItems(ctx, first, 1, strings.TrimSpace(input.Category), "")
+		items := aggregateByTitle(perSource, input.AdultView)
+		if input.ContentKind != "" {
+			filtered := items[:0]
+			for _, item := range items {
+				if item.ContentKind == input.ContentKind {
+					filtered = append(filtered, item)
+				}
+			}
+			items = filtered
+		}
+		result := nativeAggregateResult{
+			Items: items, Page: 1, TotalSources: len(sources), FailedSources: failed,
+			HasMore: true, Partial: true, GroupID: input.GroupID,
+		}
+		if result.Items == nil {
+			result.Items = []nativeAggregateItem{}
+		}
+		return result, nil
 	}
 	perSource, failed := engine.aggregateSourceItems(ctx, sources, max(1, input.Page), strings.TrimSpace(input.Category), strings.TrimSpace(input.Query))
 	items := aggregateByTitle(perSource, input.AdultView)

@@ -93,3 +93,19 @@ func TestSourceIsAdultChengGuo(t *testing.T) {
 		t.Fatal("chengguo should not be adult")
 	}
 }
+
+func TestNativeRankingBoardSupported(t *testing.T) {
+	seen := map[string]bool{}
+	for _, board := range rankingBoards {
+		if !nativeRankingBoardSupported(board) {
+			continue
+		}
+		if isRetiredSource(board.Source) {
+			t.Errorf("board %s uses retired source %s", board.ID, board.Source)
+		}
+		seen[board.Source] = true
+	}
+	if !seen[sourceHongguo] || !seen[sourceHuangdou] || !seen[sourceHuangju] || !seen[sourceDuanju51] {
+		t.Fatalf("supported ranking sources incomplete: %v", seen)
+	}
+}
