@@ -97,6 +97,7 @@ abstract class AppRepository {
     required int durationMs,
   }) async => throw AppFailure('当前环境不支持弹幕');
   Future<void> cancelCatalog() async {}
+  Future<void> warmCatalogs(List<String> sources) async {}
   Future<void> cancelSuggestions() async {}
   Future<void> cancelRecommendations() async {}
   Future<Drama?> supplementMetadata(Drama drama) async => null;
@@ -351,6 +352,15 @@ class NativeRepository extends AppRepository {
 
   @override
   Future<void> cancelCatalog() => _cancelReads('catalog-');
+
+  @override
+  Future<void> warmCatalogs(List<String> sources) async {
+    if (sources.isEmpty) return;
+    try {
+      await _call({'action': 'warmCatalogs', 'sources': sources});
+    } catch (_) {}
+  }
+
   @override
   Future<void> cancelSuggestions() => _cancelReads('suggestions');
   @override
@@ -582,6 +592,11 @@ class NativeRepository extends AppRepository {
         'cancelSourceJob',
       }.contains(action)) {
         _authorize(input['source'] as String);
+      }
+      if (action == 'warmCatalogs') {
+        for (final source in (input['sources'] as List? ?? const [])) {
+          _authorize(source as String);
+        }
       }
       if ({
         'crossSource',
