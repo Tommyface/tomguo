@@ -19,9 +19,12 @@ class AppBottomNavigation extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     // DramaX：选中态用品牌红，未选中用三级灰。
-    final accent = DramaX.brand;
+    // 底色必须跟主题：浅色模式下用浅底，不能固定深色。
+    final accent = colors.primary;
     return Material(
-      color: const Color(0xFF08080A),
+      color: theme.brightness == Brightness.dark
+          ? DramaX.bg0
+          : colors.surfaceContainerLowest,
       child: SafeArea(
         top: false,
         child: DecoratedBox(
