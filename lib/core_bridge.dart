@@ -199,6 +199,11 @@ abstract class AppRepository {
     String groupId = '',
     bool refine = false,
   }) async => throw AppFailure('当前环境不支持站源整合');
+  Future<AggregatePage> aggregateCached({
+    List<String> sources = const [],
+    String kind = '',
+    bool adultView = false,
+  }) async => throw AppFailure('当前环境不支持站源整合');
   Future<List<AggregatedDrama>> aggregateSources(
     AggregatedDrama item, {
     List<String> sources = const [],
@@ -589,7 +594,11 @@ class NativeRepository extends AppRepository {
       final epoch = access?.profileEpoch;
       if (!unrestricted && access?.locked == true) throw AppFailure('请先解锁当前用户');
       if (action == 'rankings') {
-        _authorize(RankingBoard.sourceForID(input['board'] as String));
+        // 以内置映射为准；映射缺失时交给 Go 侧校验，不在这里拦成空源。
+        final boardSource = RankingBoard.sourceForID(
+          input['board'] as String? ?? '',
+        );
+        if (boardSource.isNotEmpty) _authorize(boardSource);
       }
       if (action == 'recommendations' ||
           action == 'cachedRecommendations' ||
@@ -819,6 +828,20 @@ class NativeRepository extends AppRepository {
     });
     return AggregatePage.fromJson(data);
   }
+
+  @override
+  Future<AggregatePage> aggregateCached({
+    List<String> sources = const [],
+    String kind = '',
+    bool adultView = false,
+  }) async => AggregatePage.fromJson(
+    await _call({
+      'action': 'aggregateCached',
+      'sources': sources,
+      'contentKind': kind,
+      'adultView': adultView,
+    }),
+  );
 
   @override
   Future<List<AggregatedDrama>> aggregateSources(

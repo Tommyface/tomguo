@@ -553,6 +553,8 @@ func nativeDispatch(input nativeInput) (any, error) {
 		return engine.nativeCrossSource(ctx, input)
 	case "aggregateCatalog":
 		return engine.nativeAggregateCatalog(ctx, input)
+	case "aggregateCached":
+		return engine.nativeAggregateCached(input), nil
 	case "aggregateSources":
 		return engine.nativeAggregateSources(ctx, input)
 	case "detail":

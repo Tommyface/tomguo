@@ -79,6 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _selectedDramas = <String, Drama>{};
   Timer? _cacheRefreshTimer;
   bool _refreshingUpdatedCache = false;
+  int _catalogRevision = 0;
   bool _selectionMode = false;
   bool _showRecommendations = false;
   final _recentTaps = RepeatTapGate();
@@ -200,6 +201,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _catalogUpdated(String source) {
     if (!mounted) return;
     _changedSources.add(source);
+    setState(() => _catalogRevision++);
     _cacheRefreshTimer?.cancel();
     _cacheRefreshTimer = Timer(const Duration(milliseconds: 100), () {
       unawaited(_reloadUpdatedCache());
@@ -1193,6 +1195,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             store: widget.store,
                             controller: _aggregate,
                             sources: _allSites(),
+                            catalogRevision: _catalogRevision,
                           )
                         : _catalog(selectionInBody: desktop || television),
                     tabFollow => SavedLibrary(

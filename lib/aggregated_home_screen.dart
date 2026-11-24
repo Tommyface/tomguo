@@ -46,12 +46,16 @@ class AggregatedHomeView extends StatefulWidget {
     required this.store,
     required this.controller,
     this.sources = const [],
+    this.catalogRevision = 0,
   });
 
   final AppRepository repository;
   final LocalStore store;
   final AggregateController controller;
   final List<SourceSite> sources;
+
+  /// 剧库更新计数：外部「更新剧库」完成后 +1，这里先用新缓存重铺一遍。
+  final int catalogRevision;
 
   @override
   State<AggregatedHomeView> createState() => _AggregatedHomeViewState();
@@ -84,6 +88,25 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
     _ctl.removeListener(_onControllerChanged);
     _scroll.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant AggregatedHomeView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.catalogRevision != widget.catalogRevision) {
+      unawaited(_reloadFromCache());
+    }
+  }
+
+  /// 剧库刚更新完：先用缓存重铺（瞬时），再后台拉新数据。
+  Future<void> _reloadFromCache() async {
+    final seq = ++_loadSeq;
+    final cachedItems = await _cachedItems();
+    if (!mounted || seq != _loadSeq) return;
+    if (cachedItems.isNotEmpty) {
+      setState(() => _items = cachedItems);
+    }
+    if (mounted && seq == _loadSeq) await _load();
   }
 
   void _onControllerChanged() {
@@ -121,98 +144,18 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
     return ids;
   }
 
-  /// 从 Go 侧已缓存的目录拼出首帧卡片（异步、不联网）。
+  /// 用 Go 侧各源已有目录缓存拼首帧，单次 IPC、不联网。
   Future<List<AggregatedDrama>> _cachedItems() async {
-    final byTitle = <String, AggregatedDrama>{};
-    for (final sourceId in _sourceIds.take(aggregateCacheFirstSources)) {
-      final CatalogPage page;
-      try {
-        page = await widget.repository.cached(sourceId);
-      } catch (_) {
-        continue;
-      }
-      if (!mounted) return const [];
-      for (final drama in page.items) {
-        final key = _normalizeTitle(drama.title);
-        if (key.isEmpty) continue;
-        final src = AggregatedSource(
-          source: sourceId,
-          sourceId: drama.sourceId,
-          dramaId: drama.id,
-          title: drama.title,
-          cover: drama.cover,
-          episodes: drama.episodes,
-          vip: drama.vip,
-        );
-        final existing = byTitle[key];
-        if (existing == null) {
-          byTitle[key] = AggregatedDrama(
-            key: key,
-            title: drama.title,
-            cover: drama.cover,
-            contentKind: _kindFromDrama(drama),
-            episodes: drama.episodes,
-            sourceCount: 1,
-            sources: [src],
-          );
-        } else {
-          final merged = <AggregatedSource>[...existing.sources, src];
-          byTitle[key] = AggregatedDrama(
-            key: key,
-            title: existing.title,
-            cover: existing.cover,
-            contentKind: existing.contentKind,
-            episodes: existing.episodes > drama.episodes ? existing.episodes : drama.episodes,
-            sourceCount: merged.length,
-            sources: merged,
-          );
-        }
-      }
+    try {
+      final page = await widget.repository.aggregateCached(
+        sources: _sourceIds,
+        kind: _ctl.kind,
+        adultView: _ctl.adultView,
+      );
+      return page.items;
+    } catch (_) {
+      return const [];
     }
-    return byTitle.values.toList();
-  }
-
-  static const int aggregateCacheFirstSources = 4;
-
-  static String _normalizeTitle(String title) {
-    final buffer = StringBuffer();
-    for (final rune in title.toLowerCase().runes) {
-      if (rune >= 0xFF01 && rune <= 0xFF5E) {
-        final half = rune - 0xFEE0;
-        if (_isWord(half)) buffer.writeCharCode(half);
-      } else if (_isWord(rune)) {
-        buffer.writeCharCode(rune);
-      }
-    }
-    return buffer.toString();
-  }
-
-  static bool _isWord(int rune) =>
-      (rune >= 0x30 && rune <= 0x39) ||
-      (rune >= 0x41 && rune <= 0x7A) ||
-      (rune >= 0x4E00 && rune <= 0x9FFF);
-
-  static String _kindFromDrama(Drama drama) {
-    final hay =
-        '${drama.category} ${drama.title} ${drama.tags.join(' ')}'.toLowerCase();
-    if (hay.contains('漫剧') || hay.contains('漫画') || hay.contains('manju')) {
-      return ContentKind.aiManhua;
-    }
-    if (hay.contains('魔改') || hay.contains('mogai')) return ContentKind.aiMogai;
-    if (hay.contains('换脸') || hay.contains('huanlian')) {
-      return ContentKind.aiHuanlian;
-    }
-    if (hay.contains('ai短剧') || hay.contains('ai剧') || hay.contains('aiduanju')) {
-      return ContentKind.aiDuanju;
-    }
-    if (hay.contains('真人') ||
-        hay.contains('都市') ||
-        hay.contains('甜宠') ||
-        hay.contains('逆袭') ||
-        hay.contains('古装')) {
-      return ContentKind.liveAction;
-    }
-    return ContentKind.shortDrama;
   }
 
   Future<void> _load({bool more = false}) async {
@@ -332,6 +275,8 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
             },
           ),
         ),
+        if (_loading && _items.isNotEmpty)
+          const LinearProgressIndicator(minHeight: 2),
         Expanded(
           child: RefreshIndicator(onRefresh: () => _load(), child: _body(theme)),
         ),
@@ -340,7 +285,8 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
   }
 
   Widget _body(ThemeData theme) {
-    if (_loading) {
+    // 有缓存卡就直接铺出来，加载指示放顶部细条，不再整屏转圈。
+    if (_loading && _items.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
     if (_error.isNotEmpty && _items.isEmpty) {

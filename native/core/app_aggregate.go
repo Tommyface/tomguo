@@ -45,6 +45,7 @@ type nativeAggregateResult struct {
 	TotalSources  int                   `json:"totalSources"`
 	FailedSources map[string]string     `json:"failedSources,omitempty"`
 	Partial       bool                  `json:"partial,omitempty"`
+	Cached        bool                  `json:"cached,omitempty"`
 	GroupID       string                `json:"groupId,omitempty"`
 }
 
@@ -332,4 +333,42 @@ func (engine *nativeEngine) nativeAggregateSources(ctx context.Context, input na
 		}
 	}
 	return nativeAggregateResult{Items: matched, FailedSources: failed, TotalSources: len(perSource)}, nil
+}
+
+// nativeAggregateCached 用各源已有目录缓存拼聚合页，不发起任何网络请求。
+// 首帧靠它秒出，随后再走 aggregateCatalog 拿新数据。
+func (engine *nativeEngine) nativeAggregateCached(input nativeInput) nativeAggregateResult {
+	sources := input.Sources
+	if len(sources) == 0 {
+		sources = crossSourceOrder
+		sources = append(sources, moduleCrossSourceOrder()...)
+	}
+	perSource := make(map[string][]nativeDrama, len(sources))
+	for _, raw := range sources {
+		source := canonicalProviderSource(raw)
+		if source == "" {
+			source = strings.ToLower(strings.TrimSpace(raw))
+		}
+		if items := engine.nativeCached(source).Items; len(items) > 0 {
+			perSource[source] = items
+		}
+	}
+	items := aggregateByTitle(perSource, input.AdultView)
+	if input.ContentKind != "" {
+		filtered := items[:0]
+		for _, item := range items {
+			if item.ContentKind == input.ContentKind {
+				filtered = append(filtered, item)
+			}
+		}
+		items = filtered
+	}
+	result := nativeAggregateResult{
+		Items: items, Page: 1, TotalSources: len(sources),
+		HasMore: len(items) >= 30, Cached: true,
+	}
+	if result.Items == nil {
+		result.Items = []nativeAggregateItem{}
+	}
+	return result
 }

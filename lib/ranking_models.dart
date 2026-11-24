@@ -28,6 +28,9 @@ class RankingBoard {
     'huangju-hot' || 'huangju-new' => 'huangju',
     'yeguo-recommend' => 'yeguo',
     'dsd-catalog' => 'dsd',
+    '51duanju-total' ||
+    '51duanju-week' ||
+    '51duanju-month' => '51duanju',
     _ => '',
   };
   factory RankingBoard.fromJson(Map<String, dynamic> json) => RankingBoard(
