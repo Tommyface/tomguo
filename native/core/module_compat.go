@@ -87,10 +87,11 @@ func moduleCompatMembers(p *jsProvider, instance *jsInstance) map[string]any {
 			}
 			return jsTextResponse{Status: response.Status, Body: response.Body, URL: request.URL, FinalURL: request.URL}
 		},
+		"preserveIntegers": modulePreserveIntegers,
 		"parseUrl": func(raw string) goja.Value {
 			parsed, err := url.Parse(strings.TrimSpace(raw))
 			if err != nil {
-				return goja.Null()
+				parsed = &url.URL{}
 			}
 			result := vm.NewObject()
 			_ = result.Set("href", parsed.String())
@@ -100,6 +101,7 @@ func moduleCompatMembers(p *jsProvider, instance *jsInstance) map[string]any {
 			_ = result.Set("port", parsed.Port())
 			_ = result.Set("userInfo", parsed.User != nil)
 			_ = result.Set("query", parsed.RawQuery)
+			_ = result.Set("path", parsed.Path)
 			_ = result.Set("pathname", parsed.Path)
 			_ = result.Set("search", parsed.RawQuery)
 			_ = result.Set("hash", parsed.Fragment)
@@ -264,4 +266,43 @@ func compatHTMLNodeWithParent(vm *goja.Runtime, node *html.Node, parent goja.Val
 	}
 	_ = object.Set("children", children)
 	return object
+}
+
+func modulePreserveIntegers(text string) string {
+	var out strings.Builder
+	out.Grow(len(text) + 64)
+	inString, escaped := false, false
+	for index := 0; index < len(text); {
+		char := text[index]
+		switch {
+		case inString:
+			if escaped {
+				escaped = false
+			} else if char == '\\' {
+				escaped = true
+			} else if char == '"' {
+				inString = false
+			}
+		case char == '"':
+			inString = true
+		case char == '-' || char >= '0' && char <= '9':
+			end := index + 1
+			for end < len(text) && strings.IndexByte("0123456789+-.eE", text[end]) >= 0 {
+				end++
+			}
+			token := text[index:end]
+			if value, err := strconv.ParseInt(token, 10, 64); !strings.ContainsAny(token, ".eE+") && (err != nil || value > 1<<53-1 || value < -(1<<53-1)) {
+				out.WriteByte('"')
+				out.WriteString(token)
+				out.WriteByte('"')
+			} else {
+				out.WriteString(token)
+			}
+			index = end
+			continue
+		}
+		out.WriteByte(char)
+		index++
+	}
+	return out.String()
 }
