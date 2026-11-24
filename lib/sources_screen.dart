@@ -112,6 +112,27 @@ class _SourcesScreenState extends State<SourcesScreen> {
     if (mounted) setState(() {});
   }
 
+  Future<void> _syncSnapshot() async {
+    final repo = widget.repository;
+    final sources = widget.store.sources.map((s) => s.id).toList();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('正在同步远程剧集快照…')),
+    );
+    try {
+      final changed = await repo.syncCatalogSnapshot(sources);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(changed ? '剧集快照已同步' : '已是最新快照')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('快照同步失败：$error')),
+      );
+    }
+  }
+
   Future<void> _refresh() async {
     if (_polling) return;
     _polling = true;
@@ -286,6 +307,11 @@ class _SourcesScreenState extends State<SourcesScreen> {
         appBar: AppBar(
           title: const Text('站源管理'),
           actions: [
+            IconButton(
+              tooltip: '同步远程剧集快照',
+              icon: const Icon(Icons.cloud_download_rounded),
+              onPressed: _syncSnapshot,
+            ),
             IconButton(
               tooltip: '停用全部站源',
               icon: const Icon(Icons.block),

@@ -34,6 +34,7 @@ import 'sources_screen.dart';
 import 'batch_download_screen.dart';
 import 'batch_downloads.dart';
 import 'drama_actions.dart';
+import 'catalog_auto_updater.dart';
 import 'library_updater.dart';
 import 'saved_library.dart';
 
@@ -75,6 +76,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _categoriesError;
   int _categoryGeneration = 0;
   late final LibraryUpdater _updater;
+  late final CatalogAutoUpdater _autoUpdater;
   final _changedSources = <String>{};
   final _selectedDramas = <String, Drama>{};
   Timer? _cacheRefreshTimer;
@@ -447,6 +449,8 @@ class _HomeScreenState extends State<HomeScreen> {
       onCatalogChanged: _catalogUpdated,
     )..addListener(_updateChanged);
     _updater.startWatching();
+    _autoUpdater = CatalogAutoUpdater(widget.repository, widget.store);
+    _autoUpdater.start();
     widget.store.addListener(_sourcesChanged);
     widget.repository.catalogUpdates.addListener(_metadataChanged);
     if (widget.store.sources.isNotEmpty) {
@@ -462,6 +466,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _aggregate.dispose();
     _updater.removeListener(_updateChanged);
     _updater.dispose();
+    _autoUpdater.dispose();
     _cacheRefreshTimer?.cancel();
     widget.store.removeListener(_sourcesChanged);
     widget.repository.catalogUpdates.removeListener(_metadataChanged);

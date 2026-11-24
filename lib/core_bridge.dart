@@ -213,6 +213,12 @@ abstract class AppRepository {
     List<String> sources = const [],
     bool adultView = false,
   }) async => throw AppFailure('当前环境不支持站源整合');
+  /// 远程剧集快照：只读远端索引，不下载站源文件。
+  Future<Map<String, dynamic>> catalogSnapshotInfo() async =>
+      throw AppFailure('当前环境不支持剧集快照');
+  /// 按启用站源同步快照到本机剧库缓存。
+  Future<bool> syncCatalogSnapshot(List<String> sources) async =>
+      throw AppFailure('当前环境不支持剧集快照');
   Future<List<SourceModule>> modules() async => const [];
   Future<SourceModule> installModule(String path) async =>
       throw AppFailure('当前环境不支持站源模块');
@@ -872,6 +878,21 @@ class NativeRepository extends AppRepository {
       for (final row in data['items'] as List? ?? const [])
         AggregatedDrama.fromJson(Map<String, dynamic>.from(row as Map)),
     ];
+  }
+
+  @override
+  Future<Map<String, dynamic>> catalogSnapshotInfo() async {
+    final data = await _call({'action': 'catalogSnapshotInfo'});
+    return Map<String, dynamic>.from(data as Map);
+  }
+
+  @override
+  Future<bool> syncCatalogSnapshot(List<String> sources) async {
+    final data = await _call({
+      'action': 'syncCatalogSnapshot',
+      'sources': sources,
+    });
+    return data == true;
   }
 
   @override

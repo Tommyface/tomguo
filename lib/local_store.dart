@@ -375,6 +375,8 @@ class LocalStore extends ChangeNotifier {
   }
 
   bool get autoExport => !locked && (_bool('autoExport') ?? false);
+  /// 剧库自动更新开关：关闭后只保留手动「更新」。默认开启。
+  bool get autoUpdateCatalog => !locked && (_bool('autoUpdateCatalog') ?? true);
   bool get exportPosters => !locked && (_bool('exportPosters') ?? false);
   String get source {
     if (locked) return '';
@@ -531,6 +533,8 @@ class LocalStore extends ChangeNotifier {
       _setting('exportPosters', value, admin: true);
   Future<void> setAutoExport(bool value) =>
       _setting('autoExport', value, admin: true);
+  Future<void> setAutoUpdateCatalog(bool value) =>
+      _setting('autoUpdateCatalog', value, admin: true);
   Future<void> setForceLogin(bool value) =>
       _setting('forceLogin', value, admin: true);
   Future<void> setHideVip(bool value) => _setting(_key('hideVip'), value);

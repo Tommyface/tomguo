@@ -559,6 +559,10 @@ func nativeDispatch(input nativeInput) (any, error) {
 		return engine.nativeAggregateCached(input), nil
 	case "aggregateSources":
 		return engine.nativeAggregateSources(ctx, input)
+	case "catalogSnapshotInfo":
+		return engine.nativeCatalogSnapshotInfo(ctx)
+	case "syncCatalogSnapshot":
+		return engine.nativeSyncCatalogSnapshot(ctx, input.Sources)
 	case "detail":
 		return engine.nativeDetail(ctx, input.Drama)
 	case "metadata":
