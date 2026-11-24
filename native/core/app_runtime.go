@@ -134,6 +134,8 @@ type nativeInput struct {
 	AggregateKey     string                  `json:"aggregateKey"`
 	GroupID          string                  `json:"groupId"`
 	Refine           bool                    `json:"refine"`
+	SourcesTagged    bool                    `json:"sourcesTagged"`
+	CachedOnly       bool                    `json:"cachedOnly"`
 }
 
 type nativeCatalogResult struct {

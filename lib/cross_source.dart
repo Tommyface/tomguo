@@ -124,6 +124,7 @@ class _CrossSourceSheetState extends State<_CrossSourceSheet> {
   CrossSourceResult? _result;
   String? _error;
   bool _loading = true;
+  bool _refining = false;
 
   @override
   void initState() {
@@ -131,23 +132,48 @@ class _CrossSourceSheetState extends State<_CrossSourceSheet> {
     _search();
   }
 
+  /// 先用缓存里的同名条目秒出候选，再后台跑完整搜索替换。
   Future<void> _search() async {
     setState(() {
       _loading = true;
+      _refining = false;
       _error = null;
     });
+    try {
+      final cached = await widget.repository.crossSource(
+        widget.drama,
+        cachedOnly: true,
+      );
+      if (!mounted) return;
+      final quick = CrossSourceResult.fromJson(cached);
+      setState(() {
+        if (quick.candidates.isNotEmpty) {
+          _result = quick;
+          _loading = false;
+          _refining = true;
+        }
+      });
+    } catch (_) {
+      // 缓存不可用就直接走完整搜索。
+    }
+    await _searchFull();
+  }
+
+  Future<void> _searchFull() async {
     try {
       final data = await widget.repository.crossSource(widget.drama);
       if (!mounted) return;
       setState(() {
         _result = CrossSourceResult.fromJson(data);
         _loading = false;
+        _refining = false;
       });
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = error.toString();
+        _error = _result == null ? error.toString() : null;
         _loading = false;
+        _refining = false;
       });
     }
   }
@@ -182,6 +208,11 @@ class _CrossSourceSheetState extends State<_CrossSourceSheet> {
                 '在其他站源里找《${widget.drama.title}》，优先无 VIP 且集数完整的版本。',
                 style: theme.textTheme.bodySmall,
               ),
+              if (_refining)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: LinearProgressIndicator(minHeight: 2),
+                ),
               const SizedBox(height: 12),
               Flexible(child: _body(context)),
             ],
@@ -192,7 +223,7 @@ class _CrossSourceSheetState extends State<_CrossSourceSheet> {
   }
 
   Widget _body(BuildContext context) {
-    if (_loading) {
+    if (_loading && (_result?.candidates.isEmpty ?? true)) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(32),

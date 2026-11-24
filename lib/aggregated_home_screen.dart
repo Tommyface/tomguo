@@ -80,12 +80,14 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
   void initState() {
     super.initState();
     _ctl.addListener(_onControllerChanged);
+    widget.store.addListener(_onStoreChanged);
     _bootstrap();
   }
 
   @override
   void dispose() {
     _ctl.removeListener(_onControllerChanged);
+    widget.store.removeListener(_onStoreChanged);
     _scroll.dispose();
     super.dispose();
   }
@@ -109,6 +111,22 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
     if (mounted && seq == _loadSeq) await _load();
   }
 
+  /// 站源分类标签变化后，成人/普通视图的源集合要跟着变。
+  void _onStoreChanged() {
+    final next = {
+      for (final source in widget.sources)
+        if (widget.store.sourceTaggedAdult(source.id)) source.id,
+    };
+    if (next.length == _adultSources.length && next.containsAll(_adultSources)) {
+      return;
+    }
+    _adultSources = next;
+    _groupId = '';
+    _loadSeq++;
+    setState(() => _items = const []);
+    _load();
+  }
+
   void _onControllerChanged() {
     _groupId = '';
     _loadSeq++;
@@ -116,17 +134,13 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
     _load();
   }
 
-  /// 成人源标记来自模块清单（manifest.adult），Dart 侧不自行猜。
+  /// 成人源标记由「站源管理」手动打标（LocalStore.sourceTags），
+  /// 不再依赖模块 manifest，用户想怎么分就怎么分。
   Future<void> _loadAdultSources() async {
-    try {
-      final modules = await widget.repository.modules();
-      _adultSources = {
-        for (final module in modules)
-          if (module.adult) module.id,
-      };
-    } catch (_) {
-      _adultSources = const {};
-    }
+    _adultSources = {
+      for (final source in widget.sources)
+        if (widget.store.sourceTaggedAdult(source.id)) source.id,
+    };
   }
 
   Future<void> _bootstrap() async {
@@ -151,6 +165,7 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
         sources: _sourceIds,
         kind: _ctl.kind,
         adultView: _ctl.adultView,
+        sourcesTagged: true,
       );
       return page.items;
     } catch (_) {
@@ -190,6 +205,7 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
         kind: _ctl.kind,
         adultView: _ctl.adultView,
         groupId: groupId,
+        sourcesTagged: true,
       );
       if (!mounted || seq != _loadSeq) return;
       setState(() {
@@ -226,6 +242,7 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
         adultView: _ctl.adultView,
         groupId: groupId,
         refine: true,
+        sourcesTagged: true,
       );
       if (!mounted || seq != _loadSeq || result.partial) return;
       setState(() {

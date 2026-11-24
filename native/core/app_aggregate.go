@@ -199,9 +199,14 @@ func (engine *nativeEngine) aggregateSourceItems(ctx context.Context, sources []
 
 // aggregateByTitle 把同一归一化标题的多源条目合并成一条作品卡。
 func aggregateByTitle(perSource map[string][]nativeDrama, adultView bool) []nativeAggregateItem {
+	return aggregateByTitleTagged(perSource, adultView, false)
+}
+
+// aggregateByTitleTagged 在 sourcesTagged 时不再按模块清单判断成人源，改用调用方给的源集合。
+func aggregateByTitleTagged(perSource map[string][]nativeDrama, adultView, sourcesTagged bool) []nativeAggregateItem {
 	buckets := map[string][]nativeDrama{}
 	for source, items := range perSource {
-		if sourceIsAdult(source) != adultView {
+		if !sourcesTagged && sourceIsAdult(source) != adultView {
 			continue
 		}
 		for _, item := range items {
@@ -271,7 +276,7 @@ func (engine *nativeEngine) nativeAggregateCatalog(ctx context.Context, input na
 	if partial {
 		first := append([]string{}, sources[:aggregatePriorityCount]...)
 		perSource, failed := engine.aggregateSourceItems(ctx, first, 1, strings.TrimSpace(input.Category), "")
-		items := aggregateByTitle(perSource, input.AdultView)
+		items := aggregateByTitleTagged(perSource, input.AdultView, input.SourcesTagged)
 		if input.ContentKind != "" {
 			filtered := items[:0]
 			for _, item := range items {
@@ -291,7 +296,7 @@ func (engine *nativeEngine) nativeAggregateCatalog(ctx context.Context, input na
 		return result, nil
 	}
 	perSource, failed := engine.aggregateSourceItems(ctx, sources, max(1, input.Page), strings.TrimSpace(input.Category), strings.TrimSpace(input.Query))
-	items := aggregateByTitle(perSource, input.AdultView)
+	items := aggregateByTitleTagged(perSource, input.AdultView, input.SourcesTagged)
 	if input.ContentKind != "" {
 		filtered := items[:0]
 		for _, item := range items {
@@ -321,7 +326,7 @@ func (engine *nativeEngine) nativeAggregateCatalog(ctx context.Context, input na
 
 func (engine *nativeEngine) nativeAggregateSources(ctx context.Context, input nativeInput) (nativeAggregateResult, error) {
 	perSource, failed := engine.aggregateSourceItems(ctx, input.Sources, 1, "", input.Query)
-	items := aggregateByTitle(perSource, input.AdultView)
+	items := aggregateByTitleTagged(perSource, input.AdultView, input.SourcesTagged)
 	key := normalizeAggregateTitle(input.Query)
 	if input.AggregateKey != "" {
 		key = input.AggregateKey
@@ -353,7 +358,7 @@ func (engine *nativeEngine) nativeAggregateCached(input nativeInput) nativeAggre
 			perSource[source] = items
 		}
 	}
-	items := aggregateByTitle(perSource, input.AdultView)
+	items := aggregateByTitleTagged(perSource, input.AdultView, input.SourcesTagged)
 	if input.ContentKind != "" {
 		filtered := items[:0]
 		for _, item := range items {

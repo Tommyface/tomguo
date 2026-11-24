@@ -188,8 +188,10 @@ abstract class AppRepository {
   Future<CatalogPage> cached(String source, {String category = ''});
   Future<String> cover(Drama drama, {bool force = false});
   Future<DramaDetail> detail(Drama drama);
-  Future<Map<String, dynamic>> crossSource(Drama drama) async =>
-      throw AppFailure('当前环境不支持同名换源');
+  Future<Map<String, dynamic>> crossSource(
+    Drama drama, {
+    bool cachedOnly = false,
+  }) async => throw AppFailure('当前环境不支持同名换源');
   Future<AggregatePage> aggregateCatalog({
     List<String> sources = const [],
     int page = 1,
@@ -198,11 +200,13 @@ abstract class AppRepository {
     bool adultView = false,
     String groupId = '',
     bool refine = false,
+    bool sourcesTagged = false,
   }) async => throw AppFailure('当前环境不支持站源整合');
   Future<AggregatePage> aggregateCached({
     List<String> sources = const [],
     String kind = '',
     bool adultView = false,
+    bool sourcesTagged = false,
   }) async => throw AppFailure('当前环境不支持站源整合');
   Future<List<AggregatedDrama>> aggregateSources(
     AggregatedDrama item, {
@@ -800,8 +804,12 @@ class NativeRepository extends AppRepository {
     await _call({'action': 'detail', 'drama': drama.toJson()}),
   );
   @override
-  Future<Map<String, dynamic>> crossSource(Drama drama) => _call({
+  Future<Map<String, dynamic>> crossSource(
+    Drama drama, {
+    bool cachedOnly = false,
+  }) => _call({
     'action': 'crossSource',
+    'cachedOnly': cachedOnly,
     'query': drama.title,
     'drama': drama.toJson(),
   });
@@ -815,6 +823,7 @@ class NativeRepository extends AppRepository {
     bool adultView = false,
     String groupId = '',
     bool refine = false,
+    bool sourcesTagged = false,
   }) async {
     final data = await _call({
       'action': 'aggregateCatalog',
@@ -825,6 +834,7 @@ class NativeRepository extends AppRepository {
       'adultView': adultView,
       'groupId': groupId,
       'refine': refine,
+      'sourcesTagged': sourcesTagged,
     });
     return AggregatePage.fromJson(data);
   }
@@ -834,12 +844,14 @@ class NativeRepository extends AppRepository {
     List<String> sources = const [],
     String kind = '',
     bool adultView = false,
+    bool sourcesTagged = false,
   }) async => AggregatePage.fromJson(
     await _call({
       'action': 'aggregateCached',
       'sources': sources,
       'contentKind': kind,
       'adultView': adultView,
+      'sourcesTagged': sourcesTagged,
     }),
   );
 

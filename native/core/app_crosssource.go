@@ -199,6 +199,11 @@ func (engine *nativeEngine) nativeCrossSource(ctx context.Context, input nativeI
 	}
 	originSource, originID, _ := splitProviderDramaID(input.Drama.ID)
 	result := crossSourceResult{Query: title, Title: title, Errors: map[string]string{}}
+	// CachedOnly：只用已缓存的目录按标题匹配，不联网。
+	// 换源页先拿它秒出候选，再走完整搜索补详情。
+	if input.CachedOnly {
+		return engine.crossSourceCached(input, title), nil
+	}
 	if input.Drama.Episodes > 0 {
 		result.Episodes = input.Drama.Episodes
 	}
@@ -367,3 +372,48 @@ var errCrossSourceNoTitle = &crossSourceError{"缺少剧名，无法换源搜索
 type crossSourceError struct{ message string }
 
 func (e *crossSourceError) Error() string { return e.message }
+
+// crossSourceCached 只在内存缓存里按归一化标题找同名剧，不发起任何请求。
+func (engine *nativeEngine) crossSourceCached(input nativeInput, title string) crossSourceResult {
+	key := normalizeAggregateTitle(title)
+	result := crossSourceResult{Query: title, Title: title, Errors: map[string]string{}}
+	if input.Drama.Episodes > 0 {
+		result.Episodes = input.Drama.Episodes
+	}
+	if input.Drama.VIP != nil && *input.Drama.VIP {
+		result.VIPEpisodes = 1
+	}
+	if key == "" {
+		return result
+	}
+	engine.mu.Lock()
+	snapshot := make(map[string][]nativeDrama, len(engine.catalogs))
+	for source, items := range engine.catalogs {
+		snapshot[source] = append([]nativeDrama{}, items...)
+	}
+	engine.mu.Unlock()
+	for source, items := range snapshot {
+		for _, item := range items {
+			if item.ID == input.Drama.ID {
+				continue
+			}
+			if normalizeAggregateTitle(item.Title) != key {
+				continue
+			}
+			candidate := crossSourceCandidate{
+				ID: item.ID, Source: source, SourceID: item.SourceID,
+				Title: item.Title, Cover: item.Cover,
+				Episodes: item.Episodes, Playable: item.Episodes > 0,
+			}
+			candidate.Score = crossSourceScore(candidate, result.Episodes, result.VIPEpisodes)
+			result.Candidates = append(result.Candidates, candidate)
+		}
+	}
+	sort.SliceStable(result.Candidates, func(i, j int) bool {
+		if result.Candidates[i].Score != result.Candidates[j].Score {
+			return result.Candidates[i].Score > result.Candidates[j].Score
+		}
+		return result.Candidates[i].Episodes > result.Candidates[j].Episodes
+	})
+	return result
+}

@@ -1283,6 +1283,46 @@ class LocalStore extends ChangeNotifier {
     _notify();
   });
 
+  static const _sourceTagsKey = 'app.source_tags.v1';
+  Map<String, String>? _sourceTagsCache;
+
+  /// 站源分类标签：id -> 'adult' | 'normal'。由「站源管理」手动打标，未打标视为普通。
+  Map<String, String> get sourceTags {
+    final cached = _sourceTagsCache;
+    if (cached != null) return Map.unmodifiable(cached);
+    final raw = preferences.getString(_sourceTagsKey);
+    if (raw == null) return const {};
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map) {
+        final result = <String, String>{
+          for (final entry in decoded.entries)
+            if (entry.value == 'adult' || entry.value == 'normal')
+              '${entry.key}': '${entry.value}',
+        };
+        _sourceTagsCache = result;
+        return Map.unmodifiable(result);
+      }
+    } catch (_) {}
+    return const {};
+  }
+
+  /// 该站源是否被手动标记为成人源；只有显式标记 adult 才算。
+  bool sourceTaggedAdult(String id) => sourceTags[id] == 'adult';
+
+  /// 设置站源分类；传空字符串表示清除标记（回到普通）。
+  Future<void> setSourceTag(String id, String tag) => _queue(() async {
+    final next = Map<String, String>.from(sourceTags);
+    if (tag == 'adult' || tag == 'normal') {
+      next[id] = tag;
+    } else {
+      next.remove(id);
+    }
+    await preferences.setString(_sourceTagsKey, jsonEncode(next));
+    _sourceTagsCache = next;
+    _notify();
+  });
+
   static const _enabledModulesKey = 'app.enabled_modules.v1';
   Set<String>? _enabledModulesCache;
 

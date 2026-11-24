@@ -349,6 +349,12 @@ class _SourcesScreenState extends State<SourcesScreen> {
     },
   );
 
+  Future<void> _setTag(SourceSite source, String tag) async {
+    await widget.store.setSourceTag(source.id, tag);
+    if (!mounted) return;
+    setState(() {});
+  }
+
   Widget _sourceCard(SourceSite source) {
     final status = _statuses[source.id];
     final pending = _pending.contains(source.id);
@@ -378,6 +384,14 @@ class _SourcesScreenState extends State<SourcesScreen> {
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                 ),
+                if (widget.store.sourceTaggedAdult(source.id)) ...[
+                  Chip(
+                    label: const Text('成人', style: TextStyle(fontSize: 11)),
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  const SizedBox(width: 6),
+                ],
                 Text('${status?.count ?? 0} 部'),
                 if (widget.store.customSources.any(
                   (s) => s.effectiveId == source.id,
@@ -438,8 +452,24 @@ class _SourcesScreenState extends State<SourcesScreen> {
                 PopupMenuButton<String>(
                   tooltip: '${source.name}更多操作',
                   enabled: enabled,
-                  onSelected: (operation) => _run(source, operation),
+                  onSelected: (operation) {
+                    if (operation == 'tagAdult' || operation == 'tagNormal') {
+                      _setTag(source, operation == 'tagAdult' ? 'adult' : '');
+                      return;
+                    }
+                    _run(source, operation);
+                  },
                   itemBuilder: (_) => [
+                    PopupMenuItem(
+                      value: widget.store.sourceTaggedAdult(source.id)
+                          ? 'tagNormal'
+                          : 'tagAdult',
+                      child: Text(
+                        widget.store.sourceTaggedAdult(source.id)
+                            ? '改为普通源'
+                            : '标记为成人源',
+                      ),
+                    ),
                     PopupMenuItem(
                       value: 'more',
                       enabled: status?.hasMore ?? true,

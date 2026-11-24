@@ -21,6 +21,11 @@ class LibraryUpdater extends ChangeNotifier {
   final _stopRequested = <String>{};
   final _revisions = <String, int>{};
   final _delivered = <String, String>{};
+
+  /// 「更新」完成后自动继续拉的历史页数，用来把剧库快照做厚。
+  /// 聚合首页直接读这份快照，所以页数越多首屏卡片越全（不占首屏时间）。
+  static const int autoExtendPages = 3;
+  final _extendRemaining = <String, int>{};
   Timer? _timer;
   bool _polling = false;
   bool _disposed = false;
@@ -83,6 +88,9 @@ class LibraryUpdater extends ChangeNotifier {
           final status = await repository.sourceStatus(source.id);
           if (_valid && revision == (_revisions[source.id] ?? 0)) {
             _accept(status);
+            if (_valid && !status.running) {
+              unawaited(_extendCatalog(source.id));
+            }
           }
         } catch (error) {
           if (_valid && revision == (_revisions[source.id] ?? 0)) {
@@ -116,6 +124,7 @@ class LibraryUpdater extends ChangeNotifier {
         try {
           if (_stopRequested.contains(source)) continue;
           final status = await repository.startSourceJob(source, 'update');
+          _extendRemaining[source] = autoExtendPages;
           _accept(status, submitted: true);
           if (_valid && _stopRequested.contains(source) && status.running) {
             _accept(await repository.cancelSourceJob(source));
@@ -129,6 +138,29 @@ class LibraryUpdater extends ChangeNotifier {
       }
     } finally {
       _pending.removeAll(selected);
+      _notify();
+    }
+  }
+
+  /// 更新完成后自动继续翻页，把已加载历史做进缓存快照。
+  Future<void> _extendCatalog(String source) async {
+    final remaining = _extendRemaining[source] ?? 0;
+    if (remaining <= 0 || !_valid || !store.allowsSource(source)) return;
+    if (_pending.contains(source) || _statuses[source]?.running == true) return;
+    if (_statuses[source]?.hasMore == false) {
+      _extendRemaining.remove(source);
+      return;
+    }
+    _extendRemaining[source] = remaining - 1;
+    _pending.add(source);
+    _notify();
+    try {
+      final status = await repository.startSourceJob(source, 'more');
+      _accept(status, submitted: true);
+    } catch (error) {
+      if (_valid) _errors[source] = error.toString();
+    } finally {
+      _pending.remove(source);
       _notify();
     }
   }
