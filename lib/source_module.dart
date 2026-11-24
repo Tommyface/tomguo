@@ -11,6 +11,8 @@ class SourceModule {
     this.installed = false,
     this.builtin = false,
     this.error = '',
+    this.disabled = false,
+    this.disabledReason = '',
   });
 
   factory SourceModule.fromJson(Map<String, dynamic> json) => SourceModule(
@@ -26,6 +28,8 @@ class SourceModule {
     installed: json['installed'] == true,
     builtin: json['builtin'] == true,
     error: json['error'] as String? ?? '',
+    disabled: json['disabled'] == true,
+    disabledReason: json['disabledReason'] as String? ?? '',
   );
 
   final String id;
@@ -37,6 +41,8 @@ class SourceModule {
   final bool adult;
   final bool installed;
   final bool builtin;
+  final bool disabled;
+  final String disabledReason;
   final String error;
 }
 
