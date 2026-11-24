@@ -17,14 +17,23 @@ const (
 )
 
 var (
-	selectedCard    = regexp.MustCompile(`(?is)<h3\b[^>]*class="[^"]*card__title[^"]*"[^>]*>\s*<a\b[^>]*href="/play/([a-zA-Z0-9_-]{2,64})/"[^>]*>(.*?)</a>`)
-	selectedEpisode = regexp.MustCompile(`(?is)<a\b([^>]*class="[^"]*play-ep[^"]*"[^>]*)>(.*?)</a>`)
-	welfareCard     = regexp.MustCompile(`(?is)<a\b[^>]*href="/detail/([a-zA-Z0-9_-]{2,64})/?"[^>]*>\s*<img\b[^>]*alt="([^"]+)"`)
-	welfareEpisode  = regexp.MustCompile(`(?is)<a\b([^>]*class="[^"]*detail-episode[^"]*"[^>]*)>(.*?)</a>`)
-	portalAttr      = regexp.MustCompile(`(?is)([a-z-]+)="([^"]*)"`)
-	portalTitle     = regexp.MustCompile(`(?is)<h1\b[^>]*>(.*?)</h1>`)
-	portalPlayer    = regexp.MustCompile(`(?is)<div\b[^>]*data-play-player\b[^>]*>`)
-	welfareMedia    = regexp.MustCompile(`(?is)<div\b[^>]*class="[^"]*dplayer-video[^"]*"[^>]*data-url="([^"]+)"`)
+	// 精选站首页每部剧是一个 <article class="card"> 块：封面在 card__cover 的
+	// data-src 上（占位图在 src 上），标题在 card__title 的 <a> 里。整块扫描
+	// 才能把封面和标题对上同一个剧标识。
+	selectedCard      = regexp.MustCompile(`(?is)<article\b[^>]*class="[^"]*card[^"]*"[^>]*>(.*?)</article>`)
+	selectedCardLink  = regexp.MustCompile(`(?i)href="/play/([a-zA-Z0-9_-]{2,64})/"`)
+	selectedCardTitle = regexp.MustCompile(`(?is)<h3\b[^>]*class="[^"]*card__title[^"]*"[^>]*>\s*<a\b[^>]*>(.*?)</a>`)
+	selectedEpisode   = regexp.MustCompile(`(?is)<a\b([^>]*class="[^"]*play-ep[^"]*"[^>]*)>(.*?)</a>`)
+	welfareCard       = regexp.MustCompile(`(?is)<a\b([^>]*href="/detail/([a-zA-Z0-9_-]{2,64})/?"[^>]*)>\s*<img\b([^>]*)>`)
+	// 懒加载封面：真图在 data-src / data-original 上，src 是占位图。
+	cardCoverAttr  = regexp.MustCompile(`(?is)\b(?:data-src|data-original|data-lazy-src|src)=["']([^"']+)["']`)
+	cardImgTag     = regexp.MustCompile(`(?is)<img\b[^>]*>`)
+	cardCoverCSS   = regexp.MustCompile(`(?is)--cover:\s*url\(\s*['"]?([^'")]+)`)
+	welfareEpisode = regexp.MustCompile(`(?is)<a\b([^>]*class="[^"]*detail-episode[^"]*"[^>]*)>(.*?)</a>`)
+	portalAttr     = regexp.MustCompile(`(?is)([a-z-]+)="([^"]*)"`)
+	portalTitle    = regexp.MustCompile(`(?is)<h1\b[^>]*>(.*?)</h1>`)
+	portalPlayer   = regexp.MustCompile(`(?is)<div\b[^>]*data-play-player\b[^>]*>`)
+	welfareMedia   = regexp.MustCompile(`(?is)<div\b[^>]*class="[^"]*dplayer-video[^"]*"[^>]*data-url="([^"]+)"`)
 )
 
 func portalAttributes(tag string) map[string]string {
@@ -35,22 +44,67 @@ func portalAttributes(tag string) map[string]string {
 	return result
 }
 
+// portalCardCover 取卡片封面的真实地址。懒加载卡片的 src 是占位图，
+// 真图在 data-src / data-original / data-lazy-src 上，个别卡片直接用 CSS 变量。
+func portalCardCover(tag, pageURL string) string {
+	attrs := portalAttributes(tag)
+	for _, key := range []string{"data-src", "data-original", "data-lazy-src", "src"} {
+		address := strings.TrimSpace(attrs[key])
+		if address == "" || strings.Contains(address, "placeholder") {
+			continue
+		}
+		return resolveProviderURL(pageURL, address)
+	}
+	if m := cardCoverCSS.FindStringSubmatch(tag); len(m) == 2 {
+		if address := strings.TrimSpace(m[1]); address != "" && !strings.Contains(address, "placeholder") {
+			return resolveProviderURL(pageURL, address)
+		}
+	}
+	return ""
+}
+
 func portalCatalog(body, source string) []Drama {
+	pageURL := portalOrigin(source) + "/"
 	seen := map[string]bool{}
 	var result []Drama
-	var matches [][]string
 	if source == sourceHuangguoSelected {
-		matches = selectedCard.FindAllStringSubmatch(body, -1)
-	} else {
-		matches = welfareCard.FindAllStringSubmatch(body, -1)
+		for _, m := range selectedCard.FindAllStringSubmatch(body, -1) {
+			block := m[1]
+			link := selectedCardLink.FindStringSubmatch(block)
+			if len(link) < 2 {
+				continue
+			}
+			id := link[1]
+			title := ""
+			if t := selectedCardTitle.FindStringSubmatch(block); len(t) >= 2 {
+				title = cleanText(t[1])
+			} else if img := cardImgTag.FindString(block); img != "" {
+				title = cleanText(portalAttributes(img)["alt"])
+			}
+			if title == "" || seen[id] {
+				continue
+			}
+			seen[id] = true
+			cover := ""
+			if img := cardImgTag.FindString(block); img != "" {
+				cover = portalCardCover(img, pageURL)
+			} else {
+				cover = portalCardCover(block, pageURL)
+			}
+			result = append(result, Drama{ID: providerDramaID(source, id), Source: source, SourceID: id, Title: title, Name: title, Cover: cover, CoverURL: cover})
+		}
+		return result
 	}
-	for _, m := range matches {
-		id, title := m[1], cleanText(m[2])
+	for _, m := range welfareCard.FindAllStringSubmatch(body, -1) {
+		id := m[2]
+		imgAttrs := portalAttributes(m[3])
+		title := cleanText(imgAttrs["alt"])
 		if title == "" || seen[id] {
 			continue
 		}
 		seen[id] = true
-		result = append(result, Drama{ID: providerDramaID(source, id), Source: source, SourceID: id, Title: title, Name: title})
+		cover := portalCardCover(m[3], pageURL)
+		result = append(result, Drama{ID: providerDramaID(source, id), Source: source, SourceID: id, Title: title, Name: title, Cover: cover, CoverURL: cover})
 	}
 	return result
 }
