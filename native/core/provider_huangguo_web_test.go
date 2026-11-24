@@ -79,3 +79,36 @@ func TestHuangguoWebMediaURLRejectsEmpty(t *testing.T) {
 		t.Fatalf("expected empty, got %q", got)
 	}
 }
+
+const huangguoWebCatalogFixture = `<a href="/videos/newqiong"><span>琼明神女录 EP7</span></a>` +
+	`<script>self.__next_f.push([1,"{\"cover\":\"cf230705/image/4w/2q4/cover.jpg\",\"currentEpisode\":7,\"seoSlug\":\"newqiong\",\"title\":\"琼明神女录 EP7\"}"])</script>` +
+	`<img src="https://zzzznnn.lkkwip.cn/cf230705/image/4w/2q4/cover.jpg" />` +
+	`<script>self.__next_f.push([1,"{\"cover\":\"cf230705/image/aa/bb/other.jpg\",\"currentEpisode\":3,\"seoSlug\":\"otherone\",\"title\":\"另一部剧\"}"])</script>`
+
+func TestHuangguoWebCatalogExtractsCoverAndEpisode(t *testing.T) {
+	items := huangguoWebParseCatalog(huangguoWebCatalogFixture)
+	if len(items) != 2 {
+		t.Fatalf("items = %d, want 2", len(items))
+	}
+	byID := map[string]Drama{}
+	for _, item := range items {
+		byID[item.SourceID] = item
+	}
+	newqiong, ok := byID["newqiong"]
+	if !ok {
+		t.Fatal("missing newqiong")
+	}
+	if newqiong.Cover != "https://zzzznnn.lkkwip.cn/cf230705/image/4w/2q4/cover.jpg" {
+		t.Fatalf("cover = %q", newqiong.Cover)
+	}
+	if newqiong.TotalEpisode != 7 {
+		t.Fatalf("total episode = %d, want 7", newqiong.TotalEpisode)
+	}
+	other, ok := byID["otherone"]
+	if !ok {
+		t.Fatal("missing RSC-only item")
+	}
+	if other.Title != "另一部剧" || other.Cover == "" {
+		t.Fatalf("rsc item = %q cover %q", other.Title, other.Cover)
+	}
+}
