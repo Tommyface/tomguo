@@ -1,0 +1,113 @@
+name: Catalog snapshot
+
+on:
+  schedule:
+    # 每 6 小时生成一次，赶在用户高峰前更新首帧快照
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: catalog-snapshot
+  cancel-in-progress: false
+
+jobs:
+  build-snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: native/go.mod
+          cache-dependency-path: native/go.sum
+
+      - name: Build probe
+        run: go build -o "$RUNNER_TEMP/probe" ./cmd/probe
+        working-directory: native
+
+      - name: Prepare module data dir
+        run: |
+          mkdir -p "$RUNNER_TEMP/moddata/modules"
+          cp -r /dev/null /dev/null 2>/dev/null || true
+
+      # 站源模块来自 tomguo-app 仓库的 registry（本地 zip 插件）。
+      # 快照只做目录索引，不搬运源站内容；模块 js/manifest 直接落到数据目录。
+      - name: Install modules from registry
+        env:
+          REGISTRY: https://fastly.jsdelivr.net/gh/Tommyface/tomguo-app@main/tomguo/registry.json
+        run: |
+          python3 - "$REGISTRY" "$RUNNER_TEMP/moddata" <<'PY'
+          import json, sys, urllib.request, zipfile, io, pathlib
+          url, target = sys.argv[1], pathlib.Path(sys.argv[2])
+          index = json.loads(urllib.request.urlopen(url, timeout=30).read())
+          entries = index.get('modules') or index.get('sources') or []
+          if isinstance(entries, dict):
+              entries = list(entries.values())
+          count = 0
+          for entry in entries:
+              ident = entry.get('id') or entry.get('name')
+              zip_url = entry.get('zip') or entry.get('url')
+              if not ident or not zip_url or not str(zip_url).startswith('https://'):
+                  continue
+              try:
+                  raw = urllib.request.urlopen(zip_url, timeout=90).read()
+                  with zipfile.ZipFile(io.BytesIO(raw)) as zf:
+                      dest = target / 'modules' / ident
+                      dest.mkdir(parents=True, exist_ok=True)
+                      zf.extractall(dest)
+                  count += 1
+                  print('installed', ident)
+              except Exception as exc:
+                  print('skip', ident, exc)
+          print('total', count)
+          PY
+
+      - name: Generate catalog snapshot
+        env:
+          SOURCES: chaoliu,heitao-guoapp,madou,huanggua,hkdoll,huangguo-official,jinguoduanju
+        run: |
+          python3 scripts/build_catalog_snapshot.py \
+            --probe "$RUNNER_TEMP/probe" \
+            --data-dir "$RUNNER_TEMP/moddata" \
+            --sources "$SOURCES" \
+            --out "$RUNNER_TEMP/catalog" \
+            --pages 5
+
+      # 推送到 tomguo-app 的 tomguo/catalog/，jsDelivr 立即可读。
+      - name: Publish snapshot to tomguo-app
+        env:
+          GH_TOKEN: ${{ secrets.TOMGUO_APP_TOKEN }}
+        run: |
+          python3 - "$RUNNER_TEMP/catalog" <<'PY'
+          import base64, json, pathlib, sys, urllib.request, urllib.error
+          root = pathlib.Path(sys.argv[1])
+          token = __import__('os').environ['GH_TOKEN']
+          repo = 'Tommyface/tomguo-app'
+          def call(path, data=None, method=None):
+              body = json.dumps(data).encode() if data is not None else None
+              req = urllib.request.Request(
+                  f'https://api.github.com/repos/{repo}/contents/{path}',
+                  data=body, method=method,
+                  headers={'Authorization': 'Bearer ' + token,
+                           'Accept': 'application/vnd.github+json',
+                           'User-Agent': 'catalog-snapshot-ci'},
+              )
+              return json.loads(urllib.request.urlopen(req, timeout=40).read())
+          for f in sorted(root.rglob('*.json')):
+              rel = 'tomguo/catalog/' + str(f.relative_to(root))
+              sha = None
+              try:
+                  sha = call(rel).get('sha')
+              except urllib.error.HTTPError:
+                  pass
+              payload = {'message': 'chore: refresh catalog snapshot',
+                         'content': base64.b64encode(f.read_bytes()).decode(),
+                         'branch': 'main'}
+              if sha:
+                  payload['sha'] = sha
+              call(rel, payload, method='PUT')
+              print('published', rel)
+          PY
