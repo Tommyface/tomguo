@@ -38,6 +38,11 @@ type moduleManifest struct {
 	Hosts             []string `json:"hosts"`
 	Capabilities      []string `json:"capabilities"`
 	AllowEmptyCatalog bool     `json:"allowEmptyCatalog"`
+	// CoverHosts 声明该源的封面图床域名。列在这里的域名由宿主直接走
+	// DoH 解析 + 钉 IP，省掉一次必然超时的直连；未列的仍先直连再回退。
+	CoverHosts    []string `json:"coverHosts,omitempty"`
+	Retired       bool   `json:"retired,omitempty"`
+	RetiredReason string `json:"retiredReason,omitempty"`
 }
 
 // moduleCapabilityNames 是 capabilities 的中文说明，供界面展示。
