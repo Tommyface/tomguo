@@ -30,6 +30,15 @@ var (
 
 var (
 	reHuakuiDramaLink = regexp.MustCompile(`(?is)<a\b[^>]*href="(/drama/([a-z0-9]{4,40})/)"[^>]*>(.*?)</a>`)
+	reHuakuiCard      = regexp.MustCompile(`(?is)<article\b[^>]*class="[^"]*hk-drama-card[^"]*"[^>]*>(.*?)</article>`)
+	reHuakuiCardTitle = regexp.MustCompile(`(?is)<h3\b[^>]*class="[^"]*hk-drama-card__title[^"]*"[^>]*>\s*<a\b[^>]*>(.*?)</a>`)
+	reHuakuiCardCover = regexp.MustCompile(`(?is)<a\b[^>]*class="[^"]*hk-drama-card__cover[^"]*"[^>]*>`)
+	reHuakuiCardURL   = regexp.MustCompile(`(?i)href="/drama/([a-z0-9]{4,40})/"`)
+	reHuakuiCardCSS   = regexp.MustCompile(`(?is)--cover:\s*url\(\s*['"]?([^'")]+)`)
+	reHuakuiPlayName  = regexp.MustCompile(`(?is)\\?"playName\\?":\\?"([^"\\]{1,200})\\?"`)
+	reHuakuiRscPush   = regexp.MustCompile(`(?s)self\.__next_f\.push\(\[1,("(?:[^"\\]|\\.)*")\]`)
+	reHuakuiJsonSlug  = regexp.MustCompile(`(?is)\\?"slug\\?":\\?"([a-z0-9]{4,40})\\?"`)
+	reHuakuiJsonCover = regexp.MustCompile(`(?is)\\?"cover\\?":\\?"((?:https?:\\?/\\?/[^"\\]+|[^"\\]{5,200}))\\?"`)
 	reHuakuiEpisode   = regexp.MustCompile(`(?is)<a\b[^>]*href="(/drama/([a-z0-9]{4,40})/(\d{1,8})/)"[^>]*>(.*?)</a>`)
 	reHuakuiTitle     = regexp.MustCompile(`(?is)<title[^>]*>(.*?)</title>`)
 	reHuakuiH1        = regexp.MustCompile(`(?is)<h1[^>]*>(.*?)</h1>`)
@@ -73,31 +82,96 @@ func (d *Downloader) fetchHuakuiCatalog(ctx context.Context, category string) ([
 	return huakuiParseCatalog(body, address, category), nil
 }
 
+// huakuiPageMeta 从首页 Next.js 载荷里补剧本名与封面。
+// 卡片上的 --cover 是占位 SVG，真图在 RSC 的 cover 字段里。
+func huakuiPageMeta(rawHTML string) (map[string]string, map[string]string) {
+	titles := map[string]string{}
+	covers := map[string]string{}
+	payloads := []string{rawHTML}
+	for _, match := range reHuakuiRscPush.FindAllStringSubmatch(rawHTML, -1) {
+		payload := match[1]
+		for depth := 0; depth < 4; depth++ {
+			decoded, err := strconv.Unquote(`"` + payload + `"`)
+			if err != nil || decoded == payload {
+				break
+			}
+			payload = decoded
+		}
+		payloads = append(payloads, payload)
+	}
+	for _, payload := range payloads {
+		for _, match := range reHuakuiJsonSlug.FindAllStringSubmatchIndex(payload, -1) {
+			slug := payload[match[2]:match[3]]
+			window := payload[max(0, match[0]-1500):min(len(payload), match[1]+2500)]
+			if name := reHuakuiPlayName.FindStringSubmatch(window); len(name) == 2 {
+				titles[slug] = cleanText(name[1])
+			}
+			if cover := reHuakuiJsonCover.FindStringSubmatch(window); len(cover) == 2 {
+				address := cover[1]
+				if strings.HasPrefix(address, "//") {
+					address = "https:" + address
+				} else if !strings.HasPrefix(address, "http") {
+					address = "https://" + address
+				}
+				covers[slug] = address
+			}
+		}
+	}
+	return titles, covers
+}
+
 func huakuiParseCatalog(rawHTML, pageURL, category string) []Drama {
+	titles, covers := huakuiPageMeta(rawHTML)
 	seen := map[string]bool{}
-	items := make([]Drama, 0, 32)
-	for _, match := range reHuakuiDramaLink.FindAllStringSubmatch(rawHTML, -1) {
-		href, slug := match[1], match[2]
-		title := cleanText(match[3])
-		if title == "" || seen[slug] {
-			continue
+	items := make([]Drama, 0, 64)
+	appendItem := func(href, slug, title string, cover string) {
+		if !validHuakuiID(slug) || title == "" || seen[slug] {
+			return
 		}
 		seen[slug] = true
+		if name := titles[slug]; name != "" {
+			title = name
+		}
+		if cover == "" {
+			cover = covers[slug]
+		}
 		items = append(items, Drama{
 			ID:           providerDramaID(sourceHuakui, slug),
 			Source:       sourceHuakui,
 			SourceID:     slug,
 			Title:        title,
 			Name:         title,
+			Cover:        cover,
+			CoverURL:     cover,
 			CategoryName: category,
 			ChannelName:  "huakui.net",
 			Remark:       huakuiAbsolute(pageURL, href),
 		})
 	}
+	for _, match := range reHuakuiCard.FindAllStringSubmatch(rawHTML, -1) {
+		block := match[1]
+		link := reHuakuiCardURL.FindStringSubmatch(block)
+		if len(link) < 2 {
+			continue
+		}
+		title := ""
+		if t := reHuakuiCardTitle.FindStringSubmatch(block); len(t) == 2 {
+			title = cleanText(t[1])
+		}
+		cover := ""
+		if card := reHuakuiCardCover.FindString(block); card != "" {
+			if m := reHuakuiCardCSS.FindStringSubmatch(card); len(m) == 2 && !strings.Contains(m[1], "placeholder") {
+				cover = huakuiAbsolute(pageURL, m[1])
+			}
+		}
+		appendItem("/drama/"+link[1]+"/", link[1], title, cover)
+	}
+	for _, match := range reHuakuiDramaLink.FindAllStringSubmatch(rawHTML, -1) {
+		appendItem(match[1], match[2], cleanText(match[3]), "")
+	}
 	sort.SliceStable(items, func(i, j int) bool { return items[i].SourceID < items[j].SourceID })
 	return items
 }
-
 func (d *Downloader) fetchHuakuiCategories(ctx context.Context) ([]nativeCategory, error) {
 	body, err := d.fetchProviderText(ctx, huakuiSiteBaseURL+"/", huakuiSiteBaseURL+"/")
 	if err != nil {
