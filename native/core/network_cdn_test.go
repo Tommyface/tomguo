@@ -124,3 +124,50 @@ func TestCoverDNSRecoveryAcceptsNewImageHosts(t *testing.T) {
 		}
 	}
 }
+
+func TestCoverDNSRecoveryReusesWorkingDirectHost(t *testing.T) {
+	var direct, lookups atomic.Int32
+	server := httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.Host != "cover.example.test" || request.TLS.ServerName != "cover.example.test" {
+			t.Error("cover request changed host or SNI", request.Host, request.TLS.ServerName)
+		}
+		_, _ = writer.Write([]byte("0123456789abcdef"))
+	}))
+	defer server.Close()
+	base := http.DefaultTransport.(*http.Transport).Clone()
+	base.Proxy = nil
+	base.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	base.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+		if address != "cover.example.test:443" {
+			t.Error("unexpected cover destination", address)
+			return nil, io.EOF
+		}
+		direct.Add(1)
+		return (&net.Dialer{}).DialContext(ctx, network, server.Listener.Addr().String())
+	}
+	resolver := newDNSResolver(base)
+	resolver.client.Transport = sourceFixtureTransport(func(request *http.Request) (*http.Response, error) {
+		lookups.Add(1)
+		return sourceFixtureResponse(request, 200, `{"Status":0}`), nil
+	})
+	transport := newCDNTransport(base, resolver)
+	defer transport.CloseIdleConnections()
+	for index := 0; index < 2; index++ {
+		request, _ := http.NewRequestWithContext(context.WithValue(context.Background(), nativeCoverNetworkKey{}, true), http.MethodGet, "https://cover.example.test/poster/synthetic.jpg", nil)
+		response, err := transport.RoundTrip(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, err := io.ReadAll(response.Body)
+		response.Body.Close()
+		if err != nil || string(body) != "0123456789abcdef" {
+			t.Fatal("cover fetch failed", err)
+		}
+	}
+	if lookups.Load() != 0 {
+		t.Fatal("working direct cover triggered DoH lookup", lookups.Load())
+	}
+	if direct.Load() < 1 {
+		t.Fatal("cover was not dialed")
+	}
+}
