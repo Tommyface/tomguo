@@ -99,3 +99,38 @@ func TestHuangguoPublishEntriesMapByName(t *testing.T) {
 		t.Fatalf("selected entry = %q", got["黄果精选站"])
 	}
 }
+
+const welfareCatalogFixture = `<a class="hero-card" href="/detail/zyb003WTS">
+<img src="/static/images/placeholder.png?v=2" class="hero-image lazy" data-src="https://d3n8qx4rvy4vol.cloudfront.net/v3/image/64/jy/1043/cover.jpg" alt="与纯阴圣体大小姐双修" />
+</a>
+<a class="card" href="/detail/plug001">
+<img class="poster lazy" src="/static/images/placeholder.png?v=2" data-original="https://d3n8qx4rvy4vol.cloudfront.net/v3/image/aa/bb/poster.jpg" alt="占位封面测试" />
+</a>`
+
+func TestPortalCatalogExtractsLazyCover(t *testing.T) {
+	selected := portalCatalog(selectedCatalogFixture, sourceHuangguoSelected)
+	if len(selected) != 2 {
+		t.Fatalf("selected items = %d, want 2", len(selected))
+	}
+	want := "https://d3n8qx4rvy4vol.cloudfront.net/v3/image/a.jpg"
+	if selected[0].Cover != want || selected[0].CoverURL != want {
+		t.Fatalf("selected cover = %q / %q, want %q", selected[0].Cover, selected[0].CoverURL, want)
+	}
+	if selected[1].Cover != "" {
+		t.Fatalf("coverless card must stay empty, got %q", selected[1].Cover)
+	}
+
+	welfare := portalCatalog(welfareCatalogFixture, sourceHuangguoWelfare)
+	if len(welfare) != 2 {
+		t.Fatalf("welfare items = %d, want 2", len(welfare))
+	}
+	if welfare[0].Title != "与纯阴圣体大小姐双修" {
+		t.Fatalf("welfare title = %q", welfare[0].Title)
+	}
+	if welfare[0].Cover != "https://d3n8qx4rvy4vol.cloudfront.net/v3/image/64/jy/1043/cover.jpg" {
+		t.Fatalf("welfare cover = %q", welfare[0].Cover)
+	}
+	if welfare[1].Cover != "https://d3n8qx4rvy4vol.cloudfront.net/v3/image/aa/bb/poster.jpg" {
+		t.Fatalf("data-original cover = %q", welfare[1].Cover)
+	}
+}
