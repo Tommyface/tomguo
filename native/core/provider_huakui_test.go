@@ -72,3 +72,23 @@ func TestHuakuiMediaURLRejectsEmptyPayload(t *testing.T) {
 		t.Fatalf("expected empty media, got %q", got)
 	}
 }
+
+const huakuiCoverCardFixture = `<article class="hk-drama-card">
+<a class="hk-drama-card__cover hk-lazy" href="/drama/baiwandajiangjiatingjingjitiaozhan/" style="--cover:url(&quot;/static/brand/placeholder.svg?v=huakui-20261010&quot;)"><span class="hk-drama-card__ep">全 8 集</span></a>
+<h3 class="hk-drama-card__title"><a href="/drama/baiwandajiangjiatingjingjitiaozhan/">百万大奖：家庭禁忌挑战</a></h3>
+</article>
+<script>self.__next_f.push([1,"{\"playName\":\"百万大奖：家庭禁忌挑战\",\"slug\":\"baiwandajiangjiatingjingjitiaozhan\",\"cover\":\"https://d3n8qx4rvy4vol.cloudfront.net/v3/image/is/ex/1045/cover.jpg\"}"])</script>`
+
+func TestHuakuiCatalogUsesCardTitleAndRSCCover(t *testing.T) {
+	items := huakuiParseCatalog(huakuiCoverCardFixture, huakuiSiteBaseURL+"/", "")
+	if len(items) != 1 {
+		t.Fatalf("items = %d, want 1", len(items))
+	}
+	if items[0].Title != "百万大奖：家庭禁忌挑战" {
+		t.Fatalf("title = %q", items[0].Title)
+	}
+	want := "https://d3n8qx4rvy4vol.cloudfront.net/v3/image/is/ex/1045/cover.jpg"
+	if items[0].Cover != want || items[0].CoverURL != want {
+		t.Fatalf("cover = %q / %q, want %q", items[0].Cover, items[0].CoverURL, want)
+	}
+}
