@@ -43,7 +43,7 @@ jobs:
           import json, sys, urllib.request, zipfile, io, pathlib
           url, target = sys.argv[1], pathlib.Path(sys.argv[2])
           index = json.loads(urllib.request.urlopen(url, timeout=30).read())
-          entries = index.get('modules') or index.get('sources') or []
+          entries = index.get('plugins') or index.get('modules') or index.get('sources') or []
           if isinstance(entries, dict):
               entries = list(entries.values())
           count = 0
