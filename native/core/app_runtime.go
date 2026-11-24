@@ -128,6 +128,7 @@ type nativeInput struct {
 	ModulePath       string                  `json:"modulePath"`
 	RegistryURL      string                  `json:"registryUrl"`
 	IncludeAdult     bool                    `json:"includeAdult"`
+	Sources          []string                `json:"sources"`
 }
 
 type nativeCatalogResult struct {
@@ -171,6 +172,8 @@ type nativeEngine struct {
 	mu               sync.Mutex
 	catalogs         map[string][]nativeDrama
 	catalogStates    map[string]nativeCatalogState
+	sourceProbes     map[string]nativeSourceProbe
+	coverBackfill    map[string]time.Time
 	categoryOptions  map[string][]nativeCategory
 	hongguoCatalog   *hongguoCatalogState
 	recommendations  map[string]nativeRecommendationState
@@ -323,7 +326,7 @@ func newNativeEngine(directory string) (*nativeEngine, error) {
 	if _, err := LoadModules(directory); err != nil {
 		d.recordDiagnostic(diagnosticEvent{Level: "warn", Event: "modules", Message: err.Error()})
 	}
-	engine := &nativeEngine{downloader: d, directory: directory, catalogs: map[string][]nativeDrama{}, catalogStates: map[string]nativeCatalogState{}}
+	engine := &nativeEngine{downloader: d, directory: directory, catalogs: map[string][]nativeDrama{}, catalogStates: map[string]nativeCatalogState{}, sourceProbes: map[string]nativeSourceProbe{}}
 	engine.loadResourceSettings()
 	d.loadRankingCache()
 	engine.loadCatalogCache()
@@ -519,6 +522,12 @@ func nativeDispatch(input nativeInput) (any, error) {
 		return engine.prepareCover(ctx, input.Drama)
 	case "modules":
 		return map[string]any{"items": engine.listModules()}, nil
+	case "probeSources":
+		items := engine.probeSources(ctx, input.Sources, input.Force)
+		return map[string]any{"items": items}, nil
+	case "warmCatalogs":
+		items := engine.warmCatalogs(ctx, input.Sources, input.Force)
+		return map[string]any{"items": items}, nil
 	case "installModule":
 		status, err := engine.installModule(input.ModulePath)
 		return status, err
@@ -575,6 +584,9 @@ func (engine *nativeEngine) nativeCatalog(ctx context.Context, input nativeInput
 			result.Items = append(result.Items, nativeNormalize(drama))
 		}
 		return result, nil
+	}
+	if isRetiredSource(source) && moduleSource(source) == nil {
+		return nativeCatalogResult{}, errSourceRetired
 	}
 	category := strings.TrimSpace(input.Category)
 	if !validNativeCategory(source, category) {
@@ -858,6 +870,7 @@ func (engine *nativeEngine) nativeCatalog(ctx context.Context, input nativeInput
 		result.Items = append(result.Items, nativeNormalize(drama))
 	}
 	engine.saveCatalogCache(cacheKey, &result)
+	engine.backfillCovers(source, result.Items)
 	return result, nil
 }
 
