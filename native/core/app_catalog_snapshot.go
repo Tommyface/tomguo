@@ -34,9 +34,9 @@ import (
 // 不必各自去踩站源的限流。
 const (
 	// 快照索引。jsDelivr 走分支引用（边缘缓存 12 小时），够用且国内可达。
-	catalogSnapshotIndexURL = "https://fastly.jsdelivr.net/gh/Tommyface/tomguo-app@main/tomguo/catalog/index.json"
+	catalogSnapshotIndexURL = "https://cdn.jsdelivr.net/gh/Tommyface/tomguo-app@main/tomguo/catalog/index.json"
 	// 兜底：加速站代理 raw.githubusercontent（同样指向 catalog 分支）。
-	catalogSnapshotMirrorBase = "https://cdn.jsdelivr.net/gh/Tommyface/tomguo-app@main/tomguo/catalog/"
+	catalogSnapshotMirrorBase = "https://raw.githubusercontent.com/Tommyface/tomguo-app/main/tomguo/catalog/"
 
 	// 单次下载超时（单个文件）。
 	//
@@ -124,7 +124,7 @@ func (engine *nativeEngine) nativeCatalogSnapshotInfo(ctx context.Context) (nati
 		// 索引里可能同时有别名（`huangguo` / `huangguoai`），规范化后去重，
 		// 否则同一个站源会被数两次、条数也跟着翻倍。
 		source = canonicalProviderSource(source)
-		if source == "" || !nativeSourceAvailable(source) || seen[source] {
+		if source == "" || seen[source] {
 			continue
 		}
 		seen[source] = true
@@ -187,7 +187,7 @@ func CatalogSnapshotSources() []string {
 func catalogSnapshotURL(file string, mirror bool) string {
 	file = strings.TrimPrefix(strings.TrimSpace(file), "/")
 	if !mirror {
-		return "https://fastly.jsdelivr.net/gh/Tommyface/tomguo-app@main/tomguo/catalog/" + file
+		return "https://cdn.jsdelivr.net/gh/Tommyface/tomguo-app@main/tomguo/catalog/" + file
 	}
 	return catalogSnapshotMirrorBase + file
 }
