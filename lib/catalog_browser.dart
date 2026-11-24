@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'core_bridge.dart';
@@ -246,6 +247,15 @@ class CatalogBrowser {
       if (cached.items.isNotEmpty) onCached?.call(cached);
       if (cacheOnly) return cached;
       if (cached.fresh && cached.items.isNotEmpty) return cached;
+    }
+
+    if (!cacheOnly && !more && query.isEmpty && sourceOrder.length > 1) {
+      unawaited(
+        repository.warmCatalogs([
+          for (final source in sourceOrder)
+            if (!session.entries[source]!.fresh) source,
+        ]),
+      );
     }
 
     await _each(sourceOrder, (source) async {
