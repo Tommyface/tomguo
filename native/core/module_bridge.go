@@ -16,7 +16,9 @@ func (h downloaderModuleHost) Do(request *http.Request, timeout time.Duration) (
 	if host, ok := request.Context().Value(pinnedHostKey{}).(string); ok && host != "" {
 		return h.d.doPinnedRequest(request, timeout, host)
 	}
-	return h.d.doCatalogRequestWithTimeout(request, timeout)
+	// 模块站点域名解析不稳时会直接报 DNS 失败；这里允许请求在失败后
+	// 由 CDN transport 用 DoH 重新解析并钉 IP 重试。
+	return h.d.doCatalogRequestWithTimeout(withModuleResolveFallback(request), timeout)
 }
 
 // 模块化站源接入：canonicalProviderSource 识别模块 id 后，
