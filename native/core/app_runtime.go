@@ -17,35 +17,35 @@ import (
 )
 
 type Config struct {
-	dataDir          string
-	MaxPagesPerSort  int
-	PageSize         int
-	Retries          int
-	InsecureTLS      bool
-	HuangguoAIURL    string
-	HuangguoWorkerURL string
+	dataDir             string
+	MaxPagesPerSort     int
+	PageSize            int
+	Retries             int
+	InsecureTLS         bool
+	HuangguoAIURL       string
+	HuangguoWorkerURL   string
 	HuangdouPlatformKey string
-	HuangguoVideoURL string
-	HuangdouURL      string
-	HongguoURL       string
-	HuangjuURL       string
-	HuangjuAPIURL    string
-	YeguoURL         string
-	YeguoAPIURL      string
-	DSDURL           string
-	SoraniURL        string
-	SoraniAPIURL     string
-	GuipianURL       string
-	HanxiaoquanURL   string
-	ChengguoURL      string
-	ChengguoAPIURL   string
-	Token            string
-	AESKeyHex        string
-	InterfaceKey     string
-	ParamKey         string
-	ParamIV          string
-	APIBase          string
-	CDNURL           string
+	HuangguoVideoURL    string
+	HuangdouURL         string
+	HongguoURL          string
+	HuangjuURL          string
+	HuangjuAPIURL       string
+	YeguoURL            string
+	YeguoAPIURL         string
+	DSDURL              string
+	SoraniURL           string
+	SoraniAPIURL        string
+	GuipianURL          string
+	HanxiaoquanURL      string
+	ChengguoURL         string
+	ChengguoAPIURL      string
+	Token               string
+	AESKeyHex           string
+	InterfaceKey        string
+	ParamKey            string
+	ParamIV             string
+	APIBase             string
+	CDNURL              string
 }
 
 type Downloader struct {
@@ -129,6 +129,9 @@ type nativeInput struct {
 	RegistryURL      string                  `json:"registryUrl"`
 	IncludeAdult     bool                    `json:"includeAdult"`
 	Sources          []string                `json:"sources"`
+	AdultView        bool                    `json:"adultView"`
+	ContentKind      string                  `json:"contentKind"`
+	AggregateKey     string                  `json:"aggregateKey"`
 }
 
 type nativeCatalogResult struct {
@@ -543,6 +546,10 @@ func nativeDispatch(input nativeInput) (any, error) {
 		return true, engine.removeModule(input.Source)
 	case "crossSource":
 		return engine.nativeCrossSource(ctx, input)
+	case "aggregateCatalog":
+		return engine.nativeAggregateCatalog(ctx, input)
+	case "aggregateSources":
+		return engine.nativeAggregateSources(ctx, input)
 	case "detail":
 		return engine.nativeDetail(ctx, input.Drama)
 	case "metadata":

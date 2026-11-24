@@ -190,6 +190,18 @@ abstract class AppRepository {
   Future<DramaDetail> detail(Drama drama);
   Future<Map<String, dynamic>> crossSource(Drama drama) async =>
       throw AppFailure('当前环境不支持同名换源');
+  Future<AggregatePage> aggregateCatalog({
+    List<String> sources = const [],
+    int page = 1,
+    String kind = '',
+    String query = '',
+    bool adultView = false,
+  }) async => throw AppFailure('当前环境不支持站源整合');
+  Future<List<AggregatedDrama>> aggregateSources(
+    AggregatedDrama item, {
+    List<String> sources = const [],
+    bool adultView = false,
+  }) async => throw AppFailure('当前环境不支持站源整合');
   Future<List<SourceModule>> modules() async => const [];
   Future<SourceModule> installModule(String path) async =>
       throw AppFailure('当前环境不支持站源模块');
@@ -635,7 +647,7 @@ class NativeRepository extends AppRepository {
         Duration(
           seconds: action == 'moveDownloads'
               ? 620
-              : action == 'crossSource'
+              : action == 'crossSource' || action.startsWith('aggregate')
               ? 240
               : action == 'danmaku'
               ? 15
@@ -782,6 +794,44 @@ class NativeRepository extends AppRepository {
     'query': drama.title,
     'drama': drama.toJson(),
   });
+
+  @override
+  Future<AggregatePage> aggregateCatalog({
+    List<String> sources = const [],
+    int page = 1,
+    String kind = '',
+    String query = '',
+    bool adultView = false,
+  }) async {
+    final data = await _call({
+      'action': 'aggregateCatalog',
+      'sources': sources,
+      'page': page,
+      'contentKind': kind,
+      'query': query,
+      'adultView': adultView,
+    });
+    return AggregatePage.fromJson(data);
+  }
+
+  @override
+  Future<List<AggregatedDrama>> aggregateSources(
+    AggregatedDrama item, {
+    List<String> sources = const [],
+    bool adultView = false,
+  }) async {
+    final data = await _call({
+      'action': 'aggregateSources',
+      'sources': sources,
+      'query': item.title,
+      'aggregateKey': item.key,
+      'adultView': adultView,
+    });
+    return [
+      for (final row in data['items'] as List? ?? const [])
+        AggregatedDrama.fromJson(Map<String, dynamic>.from(row as Map)),
+    ];
+  }
 
   @override
   Future<List<SourceModule>> modules() async {

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'aggregated_home_screen.dart';
 import 'app_layout.dart';
 import 'app_bottom_navigation.dart';
 import 'app_build.dart';
@@ -56,6 +57,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Timer? _debounce;
   late SourceSite _source;
   bool _allSources = false;
+  // 站源整合：发现页默认走聚合视图，可切回「按站源浏览」。
+  final _aggregate = AggregateController();
+  bool _aggregateFirst = true;
   List<Drama> _items = [];
   bool _loading = true;
   bool _loadingMore = false;
@@ -453,6 +457,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _aggregate.dispose();
     _updater.removeListener(_updateChanged);
     _updater.dispose();
     _cacheRefreshTimer?.cancel();
@@ -816,6 +821,17 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// 全部可选站源（跨分组去重），供聚合视图使用。
+  List<SourceSite> _allSites() {
+    final sites = <SourceSite>[];
+    for (final group in _sourceGroups) {
+      for (final source in group.sources) {
+        if (!sites.any((item) => item.id == source.id)) sites.add(source);
+      }
+    }
+    return sites;
+  }
+
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: widget.store,
@@ -957,6 +973,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           : null,
                       icon: const Icon(Icons.sort_rounded),
                     ),
+                  if (_tab == tabDiscover && _aggregateFirst)
+                    AggregateToggleButton(controller: _aggregate),
                   IconButton(
                     key: const ValueKey('open-rankings'),
                     tooltip: '榜单',
@@ -1015,6 +1033,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   onSelected: (value) {
                     if (value == 'update') {
                       _refreshCatalog();
+                    } else if (value == 'aggregate') {
+                      setState(() => _aggregateFirst = !_aggregateFirst);
                     } else if (value == 'sources') {
                       _manageSources();
                     } else if (value == 'settings') {
@@ -1064,6 +1084,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               (source) => _updater.busy(source.id),
                             ),
                         child: const Text('更新剧库'),
+                      ),
+                    if (_tab == tabDiscover)
+                      PopupMenuItem(
+                        value: 'aggregate',
+                        child: Text(_aggregateFirst ? '按站源浏览' : '聚合视图'),
                       ),
                     if (widget.repository.supportsSourceManagement)
                       const PopupMenuItem(
@@ -1160,6 +1185,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             message: '请联系管理员，或到「设置 → 播放源插件」导入插件。',
                             action: '去导入插件',
                             onRetry: () => _changeTab(tabSettings),
+                          )
+                        : _aggregateFirst
+                        ? AggregatedHomeView(
+                            key: const ValueKey('aggregate-view-tab'),
+                            repository: widget.repository,
+                            store: widget.store,
+                            controller: _aggregate,
+                            sources: _allSites(),
                           )
                         : _catalog(selectionInBody: desktop || television),
                     tabFollow => SavedLibrary(

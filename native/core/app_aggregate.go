@@ -1,0 +1,303 @@
+package core
+
+import (
+	"context"
+	"regexp"
+	"sort"
+	"strings"
+	"sync"
+	"time"
+	"unicode"
+)
+
+// 站源整合：把各站源各自的 Category 归一成统一的内容类型 contentKind。
+// 原始 Category 只是站源自己的筛选参数（line:/tag:/short_play/空值都有），
+// 不能当全局分组键，所以这里单独推断一层统一类型。
+
+type nativeAggregateSource struct {
+	Source   string `json:"source"`
+	SourceID string `json:"sourceId"`
+	DramaID  string `json:"dramaId"`
+	Title    string `json:"title"`
+	Cover    string `json:"cover"`
+	Episodes int    `json:"episodes"`
+	VIP      *bool  `json:"vip,omitempty"`
+	Playable bool   `json:"playable"`
+	Score    int    `json:"score"`
+	Adult    bool   `json:"adult"`
+	Category string `json:"category,omitempty"`
+}
+
+type nativeAggregateItem struct {
+	Key         string                  `json:"key"`
+	Title       string                  `json:"title"`
+	Cover       string                  `json:"cover"`
+	ContentKind string                  `json:"contentKind"`
+	Episodes    int                     `json:"episodes"`
+	SourceCount int                     `json:"sourceCount"`
+	Sources     []nativeAggregateSource `json:"sources"`
+}
+
+type nativeAggregateResult struct {
+	Items         []nativeAggregateItem `json:"items"`
+	HasMore       bool                  `json:"hasMore"`
+	Page          int                   `json:"page"`
+	TotalSources  int                   `json:"totalSources"`
+	FailedSources map[string]string     `json:"failedSources,omitempty"`
+}
+
+const (
+	kindShortDrama = "short_drama"
+	kindLiveAction = "live_action"
+	kindVideo      = "video"
+	kindAIDuanju   = "ai_duanju"
+	kindAIManhua   = "ai_manhua"
+	kindAIMogai    = "ai_mogai"
+	kindAIHuanlian = "ai_huanlian"
+)
+
+var aggregateNoise = regexp.MustCompile(`(?i)[（(\[【]?(全集|完整版|高清|HD|国语|粤语|短剧|免费|抢先|独家)[)）\]】]?`)
+
+// normalizeAggregateTitle 生成聚合键：去噪后缀、去标点空白、全角转半角、小写。
+func normalizeAggregateTitle(title string) string {
+	title = strings.TrimSpace(title)
+	title = strings.ToLower(title)
+	title = strings.Map(func(r rune) rune {
+		if r >= 0xFF01 && r <= 0xFF5E {
+			return r - 0xFEE0
+		}
+		if unicode.IsSpace(r) {
+			return -1
+		}
+		return r
+	}, title)
+	title = aggregateNoise.ReplaceAllString(title, "")
+	var builder strings.Builder
+	for _, r := range title {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			builder.WriteRune(r)
+		}
+	}
+	return builder.String()
+}
+
+// inferContentKind 按优先级推断统一内容类型。
+// 顺序固定：漫剧 > 魔改 > 换脸 > AI 短剧 > 视频 > 真人 > 普通短剧。
+func inferContentKind(drama nativeDrama) string {
+	haystack := strings.ToLower(strings.Join([]string{
+		drama.Category, drama.Title, strings.Join(drama.Tags, " "),
+	}, " "))
+	has := func(needles ...string) bool {
+		for _, needle := range needles {
+			if strings.Contains(haystack, needle) {
+				return true
+			}
+		}
+		return false
+	}
+	switch {
+	case has("ai-manju", "漫剧", "动态漫", "漫画", "manju"):
+		return kindAIManhua
+	case has("ai-mogai", "魔改", "mogai"):
+		return kindAIMogai
+	case has("ai-huanlian", "换脸", "huanlian"):
+		return kindAIHuanlian
+	case has("ai-duanju", "aishop", "ai短剧", "ai剧", "aiduanju"):
+		return kindAIDuanju
+	case has("vlog", "花絮", "预告", "幕后", "视频", "clip", "trailer", "video"):
+		return kindVideo
+	case has("真人", "都市", "甜宠", "逆袭", "古装", "悬疑", "短剧", "duanju"):
+		return kindLiveAction
+	default:
+		return kindShortDrama
+	}
+}
+
+var contentKindPriority = map[string]int{
+	kindAIManhua: 7, kindAIMogai: 6, kindAIHuanlian: 5,
+	kindAIDuanju: 4, kindVideo: 3, kindLiveAction: 2, kindShortDrama: 1,
+}
+
+func aggregateKindByVote(items []nativeDrama) string {
+	counts := map[string]int{}
+	for _, item := range items {
+		kind := inferContentKind(item)
+		counts[kind]++
+	}
+	best, bestCount := kindShortDrama, -1
+	for kind, count := range counts {
+		if count > bestCount || (count == bestCount && contentKindPriority[kind] > contentKindPriority[best]) {
+			best, bestCount = kind, count
+		}
+	}
+	return best
+}
+
+func sourceIsAdult(source string) bool {
+	manifest := moduleManifestByID(source)
+	if manifest == nil {
+		return false
+	}
+	return manifest.Adult != nil && *manifest.Adult
+}
+
+func moduleManifestByID(id string) *moduleManifest {
+	for _, manifest := range ModuleManifests() {
+		if manifest.ID == canonicalProviderSource(id) {
+			copy := manifest
+			return &copy
+		}
+	}
+	return nil
+}
+
+// aggregateSourceItems 并发拉取每个源的目录页；单源失败不影响整体。
+func (engine *nativeEngine) aggregateSourceItems(ctx context.Context, sources []string, page int, category, query string) (map[string][]nativeDrama, map[string]string) {
+	out := make(map[string][]nativeDrama, len(sources))
+	failed := map[string]string{}
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 6)
+	for _, raw := range sources {
+		source := canonicalProviderSource(raw)
+		if source == "" {
+			source = strings.ToLower(strings.TrimSpace(raw))
+		}
+		// 已退役的内置源由同名插件接管时仍可用：只用裸 id 判断退役。
+		bare := strings.ToLower(strings.TrimSpace(raw))
+		if moduleSource(bare) == nil && isRetiredSource(source) {
+			continue
+		}
+		wg.Add(1)
+		go func(src string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			child, cancel := context.WithTimeout(ctx, 60*time.Second)
+			defer cancel()
+			input := nativeInput{Source: src, Page: page, Category: category, Query: query}
+			result, err := engine.nativeCatalog(child, input)
+			mu.Lock()
+			defer mu.Unlock()
+			if err != nil {
+				failed[src] = err.Error()
+				return
+			}
+			out[src] = append(out[src], result.Items...)
+		}(source)
+	}
+	wg.Wait()
+	return out, failed
+}
+
+// aggregateByTitle 把同一归一化标题的多源条目合并成一条作品卡。
+func aggregateByTitle(perSource map[string][]nativeDrama, adultView bool) []nativeAggregateItem {
+	buckets := map[string][]nativeDrama{}
+	for source, items := range perSource {
+		if sourceIsAdult(source) != adultView {
+			continue
+		}
+		for _, item := range items {
+			key := normalizeAggregateTitle(item.Title)
+			if key == "" {
+				continue
+			}
+			buckets[key] = append(buckets[key], item)
+		}
+	}
+	keys := make([]string, 0, len(buckets))
+	for key := range buckets {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	out := make([]nativeAggregateItem, 0, len(keys))
+	for _, key := range keys {
+		items := buckets[key]
+		entry := nativeAggregateItem{
+			Key: key, Title: strings.TrimSpace(items[0].Title),
+			ContentKind: aggregateKindByVote(items),
+			Sources:     make([]nativeAggregateSource, 0, len(items)),
+		}
+		for _, item := range items {
+			source := canonicalProviderSource(item.Source)
+			src := nativeAggregateSource{
+				Source: source, SourceID: item.SourceID, DramaID: item.ID,
+				Title: item.Title, Cover: item.Cover, Episodes: item.Episodes,
+				VIP: item.VIP, Playable: item.Episodes > 0,
+				Adult: sourceIsAdult(source), Category: item.Category,
+			}
+			src.Score = src.Episodes
+			if src.VIP != nil && *src.VIP {
+				src.Score -= 1000
+			}
+			entry.Sources = append(entry.Sources, src)
+			if entry.Cover == "" && item.Cover != "" {
+				entry.Cover = item.Cover
+			}
+			if item.Episodes > entry.Episodes {
+				entry.Episodes = item.Episodes
+			}
+		}
+		sort.SliceStable(entry.Sources, func(i, j int) bool {
+			a, b := entry.Sources[i], entry.Sources[j]
+			if a.Playable != b.Playable {
+				return a.Playable
+			}
+			return a.Score > b.Score
+		})
+		entry.SourceCount = len(entry.Sources)
+		out = append(out, entry)
+	}
+	return out
+}
+
+func (engine *nativeEngine) nativeAggregateCatalog(ctx context.Context, input nativeInput) (nativeAggregateResult, error) {
+	sources := input.Sources
+	if len(sources) == 0 {
+		sources = crossSourceOrder
+		sources = append(sources, moduleCrossSourceOrder()...)
+	}
+	perSource, failed := engine.aggregateSourceItems(ctx, sources, max(1, input.Page), strings.TrimSpace(input.Category), strings.TrimSpace(input.Query))
+	items := aggregateByTitle(perSource, input.AdultView)
+	if input.ContentKind != "" {
+		filtered := items[:0]
+		for _, item := range items {
+			if item.ContentKind == input.ContentKind {
+				filtered = append(filtered, item)
+			}
+		}
+		items = filtered
+	}
+	sourceSet := map[string]bool{}
+	for _, raw := range sources {
+		source := canonicalProviderSource(raw)
+		if source == "" {
+			source = strings.ToLower(strings.TrimSpace(raw))
+		}
+		sourceSet[source] = true
+	}
+	result := nativeAggregateResult{
+		Items: items, Page: max(1, input.Page), TotalSources: len(sourceSet), FailedSources: failed,
+		HasMore: len(items) >= 30,
+	}
+	if result.Items == nil {
+		result.Items = []nativeAggregateItem{}
+	}
+	return result, nil
+}
+
+func (engine *nativeEngine) nativeAggregateSources(ctx context.Context, input nativeInput) (nativeAggregateResult, error) {
+	perSource, failed := engine.aggregateSourceItems(ctx, input.Sources, 1, "", input.Query)
+	items := aggregateByTitle(perSource, input.AdultView)
+	key := normalizeAggregateTitle(input.Query)
+	if input.AggregateKey != "" {
+		key = input.AggregateKey
+	}
+	matched := []nativeAggregateItem{}
+	for _, item := range items {
+		if item.Key == key || strings.EqualFold(item.Title, input.Query) {
+			matched = append(matched, item)
+		}
+	}
+	return nativeAggregateResult{Items: matched, FailedSources: failed, TotalSources: len(perSource)}, nil
+}

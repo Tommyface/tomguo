@@ -531,3 +531,148 @@ List<Map<String, dynamic>> readJsonList(String? value) {
     return [];
   }
 }
+
+/// 站源整合：同名作品在不同站源的一条来源。
+class AggregatedSource {
+  const AggregatedSource({
+    required this.source,
+    required this.dramaId,
+    required this.title,
+    this.sourceId = '',
+    this.cover = '',
+    this.episodes = 0,
+    this.vip = false,
+    this.playable = false,
+    this.adult = false,
+    this.category = '',
+  });
+
+  final String source;
+  final String sourceId;
+  final String dramaId;
+  final String title;
+  final String cover;
+  final int episodes;
+  final bool vip;
+  final bool playable;
+  final bool adult;
+  final String category;
+
+  factory AggregatedSource.fromJson(Map<String, dynamic> json) =>
+      AggregatedSource(
+        source: json['source'] as String? ?? '',
+        sourceId: json['sourceId'] as String? ?? '',
+        dramaId: json['dramaId'] as String? ?? '',
+        title: json['title'] as String? ?? '',
+        cover: json['cover'] as String? ?? '',
+        episodes: intValue(json['episodes']),
+        vip: json['vip'] == true,
+        playable: json['playable'] == true,
+        adult: json['adult'] == true,
+        category: json['category'] as String? ?? '',
+      );
+
+  /// 转回普通 Drama，供详情页与播放链路复用。
+  Drama toDrama(String fallbackTitle) => Drama(
+    id: dramaId,
+    source: source,
+    sourceId: sourceId,
+    title: title.isEmpty ? fallbackTitle : title,
+    cover: cover,
+    episodes: episodes,
+    category: category,
+    vip: vip,
+  );
+}
+
+/// 站源整合：聚合后的一部作品。
+class AggregatedDrama {
+  const AggregatedDrama({
+    required this.key,
+    required this.title,
+    required this.sources,
+    this.cover = '',
+    this.contentKind = 'short_drama',
+    this.episodes = 0,
+    this.sourceCount = 0,
+  });
+
+  final String key;
+  final String title;
+  final String cover;
+  final String contentKind;
+  final int episodes;
+  final int sourceCount;
+  final List<AggregatedSource> sources;
+
+  bool get adult => sources.isNotEmpty && sources.every((item) => item.adult);
+
+  factory AggregatedDrama.fromJson(Map<String, dynamic> json) =>
+      AggregatedDrama(
+        key: json['key'] as String? ?? '',
+        title: json['title'] as String? ?? '短剧',
+        cover: json['cover'] as String? ?? '',
+        contentKind: json['contentKind'] as String? ?? 'short_drama',
+        episodes: intValue(json['episodes']),
+        sourceCount: intValue(json['sourceCount']),
+        sources: [
+          for (final row in json['sources'] as List? ?? const [])
+            AggregatedSource.fromJson(Map<String, dynamic>.from(row as Map)),
+        ],
+      );
+}
+
+/// 站源整合：聚合首页一页数据。
+class AggregatePage {
+  AggregatePage(
+    this.items, {
+    this.hasMore = false,
+    this.page = 1,
+    this.totalSources = 0,
+    this.failedSources = const {},
+  });
+
+  final List<AggregatedDrama> items;
+  final bool hasMore;
+  final int page;
+  final int totalSources;
+  final Map<String, String> failedSources;
+
+  factory AggregatePage.fromJson(Map<String, dynamic> json) => AggregatePage(
+    [
+      for (final row in json['items'] as List? ?? const [])
+        AggregatedDrama.fromJson(Map<String, dynamic>.from(row as Map)),
+    ],
+    hasMore: json['hasMore'] == true,
+    page: intValue(json['page']) > 0 ? intValue(json['page']) : 1,
+    totalSources: intValue(json['totalSources']),
+    failedSources:
+        (json['failedSources'] as Map?)?.map(
+          (key, value) => MapEntry('$key', '$value'),
+        ) ??
+        const {},
+  );
+}
+
+/// 内容类型：与 Go 侧 contentKind 一一对应。
+abstract final class ContentKind {
+  static const all = '';
+  static const shortDrama = 'short_drama';
+  static const liveAction = 'live_action';
+  static const video = 'video';
+  static const aiDuanju = 'ai_duanju';
+  static const aiManhua = 'ai_manhua';
+  static const aiMogai = 'ai_mogai';
+  static const aiHuanlian = 'ai_huanlian';
+
+  static const labels = <String, String>{
+    all: '全部',
+    shortDrama: '短剧',
+    liveAction: '真人剧',
+    video: '视频',
+    aiDuanju: 'AI 短剧',
+    aiManhua: 'AI 漫剧',
+    aiMogai: 'AI 魔改',
+    aiHuanlian: 'AI 换脸',
+  };
+}
