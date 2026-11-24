@@ -15,11 +15,13 @@ import (
 
 type moduleStatus struct {
 	moduleManifest
-	Installed bool     `json:"installed"`
-	Builtin   bool     `json:"builtin,omitempty"`
-	Error     string   `json:"error,omitempty"`
-	Root      string   `json:"root,omitempty"`
-	Warnings  []string `json:"warnings,omitempty"`
+	Installed      bool     `json:"installed"`
+	Builtin        bool     `json:"builtin,omitempty"`
+	Error          string   `json:"error,omitempty"`
+	Root           string   `json:"root,omitempty"`
+	Warnings       []string `json:"warnings,omitempty"`
+	Disabled       bool     `json:"disabled,omitempty"`
+	DisabledReason string   `json:"disabledReason,omitempty"`
 }
 
 func (engine *nativeEngine) listModules() []moduleStatus {
@@ -28,7 +30,9 @@ func (engine *nativeEngine) listModules() []moduleStatus {
 	// 内置站源排前面，卸载不掉，只能停用。
 	for _, manifest := range bundledModules {
 		seen[manifest.ID] = true
-		out = append(out, moduleStatus{moduleManifest: manifest, Installed: true, Builtin: true})
+		status := moduleStatus{moduleManifest: manifest, Installed: true, Builtin: true}
+		engine.applySourceHealth(&status)
+		out = append(out, status)
 	}
 	for _, manifest := range ModuleManifests() {
 		if seen[manifest.ID] {
@@ -42,6 +46,7 @@ func (engine *nativeEngine) listModules() []moduleStatus {
 		if module := moduleSource(manifest.ID); module != nil {
 			status.Warnings = module.Warnings()
 		}
+		engine.applySourceHealth(&status)
 		out = append(out, status)
 	}
 	sort.SliceStable(out, func(i, j int) bool {
@@ -51,6 +56,25 @@ func (engine *nativeEngine) listModules() []moduleStatus {
 		return out[i].ID < out[j].ID
 	})
 	return out
+}
+
+func (engine *nativeEngine) applySourceHealth(status *moduleStatus) {
+	if status.Retired {
+		status.Disabled = true
+		status.DisabledReason = status.RetiredReason
+		if status.DisabledReason == "" {
+			status.DisabledReason = "该站源已停用"
+		}
+		return
+	}
+	if engine == nil {
+		return
+	}
+	reachable, reason := engine.sourceReachable(status.ID)
+	if !reachable {
+		status.Disabled = true
+		status.DisabledReason = reason
+	}
 }
 
 // installModule 解压 zip 到 modules/<id>，校验后重新注册。
