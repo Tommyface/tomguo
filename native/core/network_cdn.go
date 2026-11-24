@@ -22,15 +22,41 @@ type cdnTransport struct {
 	mu         sync.Mutex
 	transports map[string]*http.Transport
 	preferred  map[string]cdnRoute
+	failedHost map[string]time.Time
 }
 
 func newCDNTransport(base *http.Transport, resolver *dnsResolver) *cdnTransport {
-	return &cdnTransport{base: base, resolver: resolver, transports: map[string]*http.Transport{}, preferred: map[string]cdnRoute{}}
+	return &cdnTransport{base: base, resolver: resolver, transports: map[string]*http.Transport{}, preferred: map[string]cdnRoute{}, failedHost: map[string]time.Time{}}
 }
 
 func (transport *cdnTransport) RoundTrip(request *http.Request) (*http.Response, error) {
-	if request.URL.Scheme != "https" || (!protectedCDNHost(request.URL.Hostname()) && request.Context().Value(nativeCoverNetworkKey{}) != true) || (request.Method != http.MethodGet && request.Method != http.MethodHead) {
+	// 封面与站源模块的读请求都要「先直连，失败再走 DoH + 钉 IP」：
+	// 前者是图床域名被污染，后者是模块站点域名解析不稳。
+	isCover := request.Context().Value(nativeCoverNetworkKey{}) == true
+	isModule := request.Context().Value(moduleResolveFallbackKey{}) == true
+	resolved := isCover || isModule
+	if request.URL.Scheme != "https" || (!protectedCDNHost(request.URL.Hostname()) && !resolved) || (request.Method != http.MethodGet && request.Method != http.MethodHead) {
 		return transport.base.RoundTrip(request)
+	}
+	if resolved {
+		host := request.URL.Hostname()
+		transport.mu.Lock()
+		failedAt := transport.failedHost[host]
+		transport.mu.Unlock()
+		// 模块已声明该域名是图床时跳过直连：这些域名直连必然超时。
+		pinnedByManifest := isCover && moduleCoverPinned(host)
+		if !pinnedByManifest && (failedAt.IsZero() || time.Since(failedAt) > time.Hour) {
+			response, err := transport.base.RoundTrip(request)
+			if err == nil {
+				return response, nil
+			}
+			if request.Context().Err() != nil {
+				return nil, request.Context().Err()
+			}
+			transport.mu.Lock()
+			transport.failedHost[host] = time.Now()
+			transport.mu.Unlock()
+		}
 	}
 	var proxyURL *url.URL
 	var err error
@@ -55,7 +81,7 @@ func (transport *cdnTransport) RoundTrip(request *http.Request) (*http.Response,
 		if err == nil {
 			return response, nil
 		}
-	} else {
+	} else if !resolved {
 		response, err = transport.base.RoundTrip(request)
 		if err == nil {
 			return response, nil
