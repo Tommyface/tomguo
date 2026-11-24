@@ -314,7 +314,9 @@ func (engine *nativeEngine) nativeSyncCatalogSnapshot(ctx context.Context, allow
 	// 把"用户启用的"与"这份构建里可用的"求交集，得到这一轮真正要灌的站源。
 	available := make(map[string]bool, len(index.Sources))
 	for source := range index.Sources {
-		if source = canonicalProviderSource(source); source != "" && nativeSourceAvailable(source) {
+		// 快照既覆盖内置源，也覆盖用户安装的 JS 模块源。
+		// 后者不走 nativeSourceAvailable（那份白名单只管内置实现）。
+		if source = canonicalProviderSource(source); source != "" {
 			available[source] = true
 		}
 	}
