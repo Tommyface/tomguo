@@ -109,12 +109,27 @@ func (engine *nativeEngine) nativeCached(source string) nativeCatalogResult {
 }
 
 func mergeNativeCatalog(first, second []nativeDrama) []nativeDrama {
-	items := append([]nativeDrama{}, first...)
-	indices := make(map[string]int, len(items))
-	for index, item := range items {
-		indices[item.ID] = index
+	// 与 ai0by 快照对齐：first 自身也可能含重复 id（多轮并集 / 增量合并产物），
+	// 先内部去重再并 second，避免同一部剧出现两张卡。
+	items := make([]nativeDrama, 0, len(first)+len(second))
+	indices := make(map[string]int, len(first)+len(second))
+	for _, item := range first {
+		if item.ID == "" {
+			items = append(items, item)
+			continue
+		}
+		if index, found := indices[item.ID]; found {
+			items[index] = mergeNativeDrama(items[index], item)
+			continue
+		}
+		indices[item.ID] = len(items)
+		items = append(items, item)
 	}
 	for _, item := range second {
+		if item.ID == "" {
+			items = append(items, item)
+			continue
+		}
 		if index, found := indices[item.ID]; found {
 			items[index] = mergeNativeDrama(items[index], item)
 		} else {

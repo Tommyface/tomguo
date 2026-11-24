@@ -210,6 +210,12 @@ func (p *jsProvider) hostObject(instance *jsInstance) *goja.Object {
 			moduleStorageFor(id).Delete(key)
 		},
 	}
+	// guoapp 模块协议兼容层：只补本文件未定义的键，不覆盖已有实现。
+	for name, value := range moduleCompatMembers(p, instance) {
+		if _, exists := members[name]; !exists {
+			members[name] = value
+		}
+	}
 	for name, value := range members {
 		if err := host.Set(name, value); err != nil {
 			panic(err)

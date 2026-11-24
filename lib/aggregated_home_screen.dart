@@ -19,9 +19,17 @@ class AggregateController extends ChangeNotifier {
 
   bool _adultView;
   String _kind;
+  /// 用户勾选进入聚合的站源；空集合表示"全部按当前视图分类"。
+  Set<String> _selectedSources = <String>{};
 
   bool get adultView => _adultView;
   String get kind => _kind;
+  Set<String> get selectedSources => Set.unmodifiable(_selectedSources);
+
+  void setSelectedSources(Iterable<String> ids) {
+    _selectedSources = ids.toSet();
+    notifyListeners();
+  }
 
   void setKind(String value) {
     if (_kind == value) return;
@@ -152,8 +160,11 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
   List<String> get _sourceIds {
     final wantAdult = _ctl.adultView;
     final ids = <String>[];
+    final selected = _ctl.selectedSources;
     for (final source in widget.sources) {
-      if (_adultSources.contains(source.id) == wantAdult) ids.add(source.id);
+      if (_adultSources.contains(source.id) != wantAdult) continue;
+      if (selected.isNotEmpty && !selected.contains(source.id)) continue;
+      ids.add(source.id);
     }
     return ids;
   }
@@ -475,6 +486,131 @@ class _AggregatedHomeScreenState extends State<AggregatedHomeScreen> {
         controller: _controller,
         sources: widget.sources,
       ),
+    ),
+  );
+}
+
+/// 顶栏「选择站源」按钮：打开多选面板，勾选要进入聚合的站源。
+class AggregateSourcePickerButton extends StatelessWidget {
+  const AggregateSourcePickerButton({
+    super.key,
+    required this.controller,
+    required this.sources,
+    required this.isAdult,
+  });
+
+  final AggregateController controller;
+  final List<SourceSite> sources;
+  final bool isAdult;
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    key: const ValueKey('aggregate-source-picker'),
+    tooltip: '选择站源',
+    icon: const Icon(Icons.filter_alt_rounded),
+    onPressed: () async {
+      final picked = await showModalBottomSheet<Set<String>>(
+        context: context,
+        isScrollControlled: true,
+        builder: (context) => _AggregateSourcePicker(
+          sources: sources,
+          initial: controller.selectedSources,
+        ),
+      );
+      if (picked != null) controller.setSelectedSources(picked);
+    },
+  );
+}
+
+class _AggregateSourcePicker extends StatefulWidget {
+  const _AggregateSourcePicker({required this.sources, required this.initial});
+  final List<SourceSite> sources;
+  final Set<String> initial;
+  @override
+  State<_AggregateSourcePicker> createState() => _AggregateSourcePickerState();
+}
+
+class _AggregateSourcePickerState extends State<_AggregateSourcePicker> {
+  late Set<String> _picked;
+
+  @override
+  void initState() {
+    super.initState();
+    _picked = Set<String>.from(widget.initial);
+  }
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 16, 4),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text('选择站源', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              ),
+              TextButton(
+                onPressed: () => setState(() => _picked = widget.sources.map((s) => s.id).toSet()),
+                child: const Text('全选'),
+              ),
+              TextButton(
+                onPressed: () => setState(() => _picked.clear()),
+                child: const Text('清空'),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '已选 ${_picked.length}/${widget.sources.length} · 可同时勾选多个站源聚合浏览',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Flexible(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              for (final source in widget.sources)
+                CheckboxListTile(
+                  key: ValueKey('source-pick-${source.id}'),
+                  value: _picked.contains(source.id),
+                  onChanged: (checked) => setState(() {
+                    if (checked == true) _picked.add(source.id); else _picked.remove(source.id);
+                  }),
+                  title: Text(source.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  subtitle: Text(source.id, maxLines: 1, overflow: TextOverflow.ellipsis),
+                ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context, const <String>{}),
+                  child: const Text('取消'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(context, Set<String>.from(_picked)),
+                  child: const Text('确定'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     ),
   );
 }

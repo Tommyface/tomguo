@@ -975,8 +975,14 @@ class _HomeScreenState extends State<HomeScreen> {
                           : null,
                       icon: const Icon(Icons.sort_rounded),
                     ),
-                  if (_tab == tabDiscover && _aggregateFirst)
+                  if (_tab == tabDiscover && _aggregateFirst) ...[
+                    AggregateSourcePickerButton(
+                      controller: _aggregate,
+                      sources: widget.store.sources,
+                      isAdult: _aggregate.adultView,
+                    ),
                     AggregateToggleButton(controller: _aggregate),
+                  ],
                   IconButton(
                     key: const ValueKey('open-rankings'),
                     tooltip: '榜单',

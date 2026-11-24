@@ -268,3 +268,22 @@ func TestNativeCatalogCacheMigratesAndKeepsHongguoCursorItems(t *testing.T) {
 		t.Fatal("upgraded cache could not be reopened", err)
 	}
 }
+
+func TestMergeNativeCatalogDeduplicatesFirst(t *testing.T) {
+	first := []nativeDrama{
+		{ID: "a", Title: ""},
+		{ID: "a", Cover: "cover-a"},
+		{ID: "b", Title: "B"},
+	}
+	second := []nativeDrama{{ID: "b", Description: "desc-b"}, {ID: "c", Title: "C"}}
+	merged := mergeNativeCatalog(first, second)
+	if len(merged) != 3 {
+		t.Fatalf("want 3 items, got %d: %+v", len(merged), merged)
+	}
+	if merged[0].Cover != "cover-a" {
+		t.Fatalf("duplicate ids in first were not merged: %+v", merged[0])
+	}
+	if merged[1].Description != "desc-b" || merged[2].Title != "C" {
+		t.Fatalf("second merge wrong: %+v", merged)
+	}
+}
