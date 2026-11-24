@@ -333,11 +333,26 @@ class _ModulesScreenState extends State<ModulesScreen> {
         ],
       );
     }
+    final visible = _modules.where((module) => !module.disabled).toList();
+    final hidden = _modules.where((module) => module.disabled).toList();
     return ListView.separated(
-      itemCount: _modules.length,
+      itemCount: visible.length + (hidden.isEmpty ? 0 : 1),
       separatorBuilder: (_, __) => const Divider(height: 1),
       itemBuilder: (context, index) {
-        final module = _modules[index];
+        if (index == visible.length) {
+          return ListTile(
+            leading: const Icon(Icons.visibility_off_outlined),
+            title: Text('已停用 ${hidden.length} 个站源'),
+            subtitle: Text(
+              hidden
+                  .map((m) => '${m.name}：${m.disabledReason.isEmpty ? '长期不可用' : m.disabledReason}')
+                  .join('\n'),
+              maxLines: 6,
+              overflow: TextOverflow.ellipsis,
+            ),
+          );
+        }
+        final module = visible[index];
         final enabled = widget.store.enabledModules?.contains(module.id) ?? true;
         return ListTile(
           leading: const Icon(Icons.extension_outlined),
