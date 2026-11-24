@@ -174,6 +174,47 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
 
   static const int aggregateCacheFirstSources = 4;
 
+  static String _normalizeTitle(String title) {
+    final buffer = StringBuffer();
+    for (final rune in title.toLowerCase().runes) {
+      if (rune >= 0xFF01 && rune <= 0xFF5E) {
+        final half = rune - 0xFEE0;
+        if (_isWord(half)) buffer.writeCharCode(half);
+      } else if (_isWord(rune)) {
+        buffer.writeCharCode(rune);
+      }
+    }
+    return buffer.toString();
+  }
+
+  static bool _isWord(int rune) =>
+      (rune >= 0x30 && rune <= 0x39) ||
+      (rune >= 0x41 && rune <= 0x7A) ||
+      (rune >= 0x4E00 && rune <= 0x9FFF);
+
+  static String _kindFromDrama(Drama drama) {
+    final hay =
+        '${drama.category} ${drama.title} ${drama.tags.join(' ')}'.toLowerCase();
+    if (hay.contains('漫剧') || hay.contains('漫画') || hay.contains('manju')) {
+      return ContentKind.aiManhua;
+    }
+    if (hay.contains('魔改') || hay.contains('mogai')) return ContentKind.aiMogai;
+    if (hay.contains('换脸') || hay.contains('huanlian')) {
+      return ContentKind.aiHuanlian;
+    }
+    if (hay.contains('ai短剧') || hay.contains('ai剧') || hay.contains('aiduanju')) {
+      return ContentKind.aiDuanju;
+    }
+    if (hay.contains('真人') ||
+        hay.contains('都市') ||
+        hay.contains('甜宠') ||
+        hay.contains('逆袭') ||
+        hay.contains('古装')) {
+      return ContentKind.liveAction;
+    }
+    return ContentKind.shortDrama;
+  }
+
   Future<void> _load({bool more = false}) async {
     if (more ? _loadingMore : _loading) return;
     if (more && !_hasMore) return;
