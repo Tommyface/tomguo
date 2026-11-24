@@ -60,7 +60,10 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _allSources = false;
   // 站源整合：发现页默认走聚合视图，可切回「按站源浏览」。
   final _aggregate = AggregateController();
-  bool _aggregateFirst = true;
+  // 默认走「按站源浏览」（切换按钮），聚合视图是可选模式。
+  // 两套浏览方式同时激活时会互相干扰：聚合视图拉多源、切换按钮拉单源，
+  // 用户设了筛选范围之后更明显（刷新慢、切了源结果不变）。
+  bool _aggregateFirst = false;
   List<Drama> _items = [];
   bool _loading = true;
   bool _loadingMore = false;
@@ -88,10 +91,35 @@ class _HomeScreenState extends State<HomeScreen> {
   String _sourceSignature = '';
   bool _catalogLoadScheduled = false;
 
+  /// 自定义筛选范围（多选站源面板）。空集表示不限。
+  ///
+  /// 优先级规则：一旦用户在「筛选站源」里选过，筛选范围就是唯一的准绳 ——
+  /// 切换按钮（按站源浏览）只在这个范围内轮转，分组下拉也只剩这些站源。
+  /// 没设过筛选时一切照旧，切换按钮管全部站源。两套范围混用会让用户看到
+  /// 「切到了某个源但刷新结果还是筛选后的那几个」这种对不上的现象。
+  Set<String> get _scope {
+    final selected = _aggregate.selectedSources;
+    if (selected.isEmpty) return const <String>{};
+    final known = widget.store.sources.map((source) => source.id).toSet();
+    return selected.where(known.contains).toSet();
+  }
+
+  bool get _scoped => _scope.isNotEmpty;
+
+  List<SourceSite> get _scopedSites {
+    final scope = _scope;
+    if (scope.isEmpty) return widget.store.sources;
+    // 保持原顺序，不因筛选重排，避免列表位置跳。
+    return widget.store.sources
+        .where((source) => scope.contains(source.id))
+        .toList();
+  }
+
   List<SourceGroup> get _sourceGroups {
-    final groups = SourceGroup.fromSources(widget.store.sources);
+    final sites = _scopedSites;
+    final groups = SourceGroup.fromSources(sites);
     return [
-      if (groups.length > 1) SourceGroup('all', '全部站源', widget.store.sources),
+      if (groups.length > 1) SourceGroup('all', '全部站源', sites),
       ...groups,
     ];
   }
@@ -449,6 +477,7 @@ class _HomeScreenState extends State<HomeScreen> {
       onCatalogChanged: _catalogUpdated,
     )..addListener(_updateChanged);
     _updater.startWatching();
+    _aggregate.addListener(_onAggregateChanged);
     _autoUpdater = CatalogAutoUpdater(widget.repository, widget.store);
     _autoUpdater.start();
     widget.store.addListener(_sourcesChanged);
@@ -465,6 +494,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _aggregate.dispose();
     _updater.removeListener(_updateChanged);
+    _aggregate.removeListener(_onAggregateChanged);
     _updater.dispose();
     _autoUpdater.dispose();
     _cacheRefreshTimer?.cancel();
@@ -506,6 +536,13 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       unawaited(_load(more: true));
     });
+  }
+
+  /// 筛选范围变化：立刻收敛当前站源并重建，让切换按钮的候选跟着变。
+  void _onAggregateChanged() {
+    if (!mounted) return;
+    _reconcileScope();
+    setState(() {});
   }
 
   void _metadataChanged() {
@@ -583,6 +620,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _changeSource(SourceSite source, {bool allSources = false}) {
+    // 筛选范围优先：范围外的站源不允许被切换按钮选中。
+    // 用户设定的筛选是明确意图，切换按钮只在圈定的范围内轮转。
+    if (_scoped && !_scope.contains(source.id)) {
+      return;
+    }
     if (_source.id == source.id && _allSources == allSources) {
       return;
     }
@@ -839,10 +881,25 @@ class _HomeScreenState extends State<HomeScreen> {
     return sites;
   }
 
+  /// 筛选范围变了、当前站源落到范围外时，就地收敛到范围内第一个。
+  /// 不收敛的话页面会停在「筛选了 A/B，但正在看 C」的错位状态。
+  void _reconcileScope() {
+    if (!_scoped) return;
+    if (_scope.contains(_source.id)) return;
+    final first = _scopedSites.firstOrNull;
+    if (first == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scoped || _scope.contains(_source.id)) return;
+      _changeSource(first);
+    });
+  }
+
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: widget.store,
-    builder: (context, _) => LayoutBuilder(
+    builder: (context, _) {
+      _reconcileScope();
+      return LayoutBuilder(
       builder: (context, constraints) {
         final television = AppLayout.isTelevision(context);
         final desktop = constraints.maxWidth >= 840;
@@ -1291,7 +1348,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       },
-    ),
+    );
+    },
   );
 
   Widget _catalog({required bool selectionInBody}) {
