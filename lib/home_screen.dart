@@ -35,6 +35,8 @@ import 'batch_download_screen.dart';
 import 'batch_downloads.dart';
 import 'drama_actions.dart';
 import 'catalog_auto_updater.dart';
+import 'catalog_search_panel.dart';
+import 'drama_card_tile.dart';
 import 'library_updater.dart';
 import 'saved_library.dart';
 
@@ -817,19 +819,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final following = widget.store.following(drama.id);
     final canSelect =
         widget.store.canDownload && widget.repository.supportsDownloads;
-    return DramaXCard(
-      key: ValueKey(drama.id),
+    return DramaCardTile(
       drama: drama,
       repository: widget.repository,
       onTap: () => _selectionMode ? _selectDrama(drama) : _openDrama(drama),
       onLongPress: canSelect ? () => _selectDrama(drama) : null,
       onMore: () => _dramaActions(drama),
-      actions: DramaActionButton(
-        drama: drama,
-        onPressed: () => _dramaActions(drama),
-      ),
       selected: _selectionMode ? _selectedDramas.containsKey(drama.id) : null,
-      badge: following == null
+      followBadge: following == null
           ? null
           : '${following.status.label}${following.hasUpdates ? ' · ${following.updateLabel}' : ''}',
     );
@@ -1357,57 +1354,23 @@ class _HomeScreenState extends State<HomeScreen> {
     final television = AppLayout.isTelevision(context);
     return Column(
       children: [
-        if (_searchVisible && !television)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-            child: SearchInput(
-              key: ValueKey('search-${_group.id}'),
-              controller: _search,
-              autofocus: true,
-              hint: _searchHint,
-              suggestions: _searchSuggestions
-                  ? widget.repository.suggestions
-                  : null,
-              onChanged: _searchChanged,
-              onCancel: () => unawaited(widget.repository.cancelSuggestions()),
-              onSearch: _submitSearch,
-            ),
-          ),
-        if (_searchVisible &&
-            _search.text.trim().isEmpty &&
-            widget.store.recentSearches.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        for (final query in widget.store.recentSearches)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: ActionChip(
-                              avatar: const Icon(
-                                Icons.history_rounded,
-                                size: 16,
-                              ),
-                              label: Text(query),
-                              onPressed: () => _submitSearch(query),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-                IconButton(
-                  tooltip: '清空最近搜索',
-                  onPressed: () =>
-                      saveUserChange(context, widget.store.clearRecentSearches),
-                  icon: const Icon(Icons.delete_outline_rounded, size: 20),
-                ),
-              ],
+        if (!television)
+          CatalogSearchPanel(
+            controller: _search,
+            groupKey: _group.id,
+            hint: _searchHint,
+            visible: _searchVisible,
+            autofocus: true,
+            suggestions: _searchSuggestions
+                ? widget.repository.suggestions
+                : null,
+            onChanged: _searchChanged,
+            onCancel: () => unawaited(widget.repository.cancelSuggestions()),
+            onSearch: _submitSearch,
+            recentSearches: widget.store.recentSearches,
+            onClearRecent: () => saveUserChange(
+              context,
+              widget.store.clearRecentSearches,
             ),
           ),
         // v5.1：DramaX 红渐变站源状态条（路径 A 融合技法），点击直达站源管理。
