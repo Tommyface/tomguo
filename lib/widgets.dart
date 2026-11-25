@@ -95,10 +95,14 @@ class DramaCover extends StatelessWidget {
     required this.repository,
     this.radius = 14,
     this.cacheWidth,
+    this.background,
   });
   final Drama drama;
   final AppRepository repository;
   final double radius;
+  /// 海报底色渐变。传入时用它替代默认的占位色，调用方就不必在卡片里
+  /// 再叠一层径向渐变 DecoratedBox。
+  final List<Color>? background;
   /// 海报解码宽度。传 null 时用原实现的 440。
   final int? cacheWidth;
   static const imagesDisabled = bool.fromEnvironment('DISABLE_REMOTE_IMAGES');
@@ -108,11 +112,17 @@ class DramaCover extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final placeholder = Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [colors.surfaceContainerHighest, colors.surfaceContainer],
-        ),
+        gradient: background != null
+            ? RadialGradient(
+                center: const Alignment(-0.44, -0.56),
+                radius: 1.1,
+                colors: background!,
+              )
+            : LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [colors.surfaceContainerHighest, colors.surfaceContainer],
+              ),
       ),
       child: Center(
         child: Icon(
