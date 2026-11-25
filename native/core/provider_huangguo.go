@@ -109,14 +109,13 @@ func isHuangguoProviderSource(source string) bool {
 	if isCustomSource(source) {
 		return true
 	}
-	switch canonicalProviderSource(source) {
-	case sourceHuangguoAI, sourceHuangguoVideo, sourceHuangdou, sourceHongguo, sourceHuangju, sourceYeguo, sourceDSD, sourceCloudFront, sourceSorani, sourceGuipian, sourceHanxiaoquan,
-		sourceDuanju51, sourceEZDMW, sourceHema, sourceChengguo, sourceHuakui, sourceHuangguoOfficial, sourceHuangguoMain, sourceHuangguoSelected, sourceHuangguoWelfare,
-		sourceHuaguo, sourceWangguo, sourceFaguo, sourceWuguo, sourceMxdm, sourceJcydm:
+	canonical := canonicalProviderSource(source)
+	// 内置源清单在 source_registry.go 里，是一张表而不是一个 switch：
+	// 新增内置源只改表，不改分发逻辑。
+	if _, ok := lookupSourceSpec(canonical); ok {
 		return true
-	default:
-		return moduleSource(canonicalProviderSource(source)) != nil
 	}
+	return moduleSource(canonical) != nil
 }
 
 func canonicalProviderSource(source string) string {
@@ -125,63 +124,11 @@ func canonicalProviderSource(source string) string {
 	if moduleSource(normalized) != nil {
 		return normalized
 	}
-	switch normalized {
-	case "huangguo", "huangguoai", "huangguoai.com":
-		return sourceHuangguoAI
-	case "huangguo-video", "huangguo.video":
-		return sourceHuangguoVideo
-	case "huangdou", "tideember.cc", "xqjurgek.top", "iwgsqufx.cc", "roufquunbu.cc", "ahievheved.cc", "momodrift.top", "eyeonneb.cc", "lzlukvca.cc", "glowcanvas.cc", "zuzuspot.top", "zuzucast.top":
-		return sourceHuangdou
-	case "hongguo", "hongguoduanju.com":
-		return sourceHongguo
-	case "huangju", "huangju.net", "api.huangju.net":
-		return sourceHuangju
-	case "yeguo", "ygdj7.com", "www.ygdj7.com", "analyze.buxefaex.cc", "delta.ygrwdsgt.cc", "yeguodj.com", "www.yeguodj.com":
-		return sourceYeguo
-	case "dsd", "dsd.com.se", "www.dsd.com.se":
-		return sourceDSD
-	case "cloudfront":
-		return sourceCloudFront
-	case "sorani", "sorani.net", "www.sorani.net", "api.sorani.cc", "sorani.cc":
-		return sourceSorani
-	case "guipian", "guipianwu.com", "www.guipianwu.com":
-		return sourceGuipian
-	case "hanxiaoquan", "jennyhow.com", "www.jennyhow.com":
-		return sourceHanxiaoquan
-	// 以下为参考 zhenguojianTV v0.8.31 新增站源的别名映射。
-	case "51duanju", "51短剧", "51dj", "blue.xdrgcewe.cc", "51duanju.com", "www.51duanju.com", "51duanju.app":
-		return sourceDuanju51
-	case "ezdmw", "e站", "e站动漫", "ezdmw.org", "m.ezdmw.org", "www.ezdmw.org":
-		return sourceEZDMW
-	case "hema", "河马", "河马剧场", "河马短剧", "www.kuaikaw.cn", "kuaikaw.cn":
-		return sourceHema
-	case "chengguo", "橙果", "橙果短剧", "chengguodj.com", "www.chengguodj.com", "api2.chengguodj.com", "12.cyjoifcwr.cc":
-		return sourceChengguo
-	case "huakui", "花魁", "花魁短剧", "huakui.net", "www.huakui.net", "huakui1.com", "huakui2.com", "huakui3.com":
-		return sourceHuakui
-	case "huangguo-official", "黄果官网", "officialWebsite", "dqsibjrdsxx5r.cloudfront.net":
-		return sourceHuangguoOfficial
-	case "huangguo-main", "黄果主站", "falpius.com", "whmxun.com":
-		return sourceHuangguoMain
-	case "huangguo-selected", "黄果精选", "d2teten6pcf3ig.cloudfront.net":
-		return sourceHuangguoSelected
-	case "huangguo-welfare", "黄果福利", "d24dalcptr65cw.cloudfront.net":
-		return sourceHuangguoWelfare
-	case "huaguo", "花果", "花生", "www.zywest263.com", "zywest263.com":
-		return sourceHuaguo
-	case "wangguo", "网果", "短剧网", "www.duanju2.com", "duanju2.com":
-		return sourceWangguo
-	case "faguo", "发果", "168影院", "www.xzyx168.com", "xzyx168.com":
-		return sourceFaguo
-	case "wuguo", "伍果", "五五", "www.duanju55.com", "duanju55.com":
-		return sourceWuguo
-	case "mxdm", "mx", "mxdm.com", "mx动漫", "www.dcc3.com", "dcc3.com":
-		return sourceMxdm
-	case "jcydm", "jm", "囧次元", "囧漫", "囧次元动漫", "www.jcydm1.com", "jcydm1.com":
-		return sourceJcydm
-	default:
-		return strings.TrimSpace(source)
+	// 别名表同样来自 source_registry.go，域名与中文别名都在那一张表里。
+	if spec, ok := lookupSourceSpec(normalized); ok {
+		return spec.ID
 	}
+	return strings.TrimSpace(source)
 }
 
 func mergeDramaMetadata(base, extra Drama) Drama {
