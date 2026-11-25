@@ -46,6 +46,9 @@ jobs:
       - run: go test -race ./...
         working-directory: native
         continue-on-error: true
+      # S0 冻结门禁：内置站源实现不得增长，新源必须以 zip 模块提交。
+      # 这一条不设 continue-on-error —— 它是重构的红线。
+      - run: python3 scripts/check_provider_freeze.py
 
   android:
     runs-on: ubuntu-latest
