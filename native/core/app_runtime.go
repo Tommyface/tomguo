@@ -185,6 +185,10 @@ type nativeEngine struct {
 	hongguoCatalog   *hongguoCatalogState
 	recommendations  map[string]nativeRecommendationState
 	catalogSaveError error
+	// catalogSaveTimer 是剧库写盘的防抖定时器：一轮刷新里每个站源抓完
+	// 都会碰一次剧库，原来每次都全量 Marshal + 写盘 + fsync，七个源就是
+	// 七次重 IO，而且都在锁内，把首页的其它 IPC 一起堵住。
+	catalogSaveTimer *time.Timer
 	sourceSaveError  error
 	covers           *nativeCoverCache
 	stream           *nativeStreamServer
@@ -565,6 +569,15 @@ func nativeDispatch(input nativeInput) (any, error) {
 		return engine.nativeAggregateSources(ctx, input)
 	case "catalogSnapshotInfo":
 		return engine.nativeCatalogSnapshotInfo(ctx)
+	case "flushCatalog":
+		// 切后台/退出前把防抖窗口里的剧库立刻写掉。
+		engine.mu.Lock()
+		err := engine.flushCatalogSave()
+		engine.mu.Unlock()
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"ok": true}, nil
 	case "syncCatalogSnapshot":
 		return engine.nativeSyncCatalogSnapshot(ctx, input.Sources)
 	case "detail":
@@ -631,8 +644,24 @@ func (engine *nativeEngine) nativeCatalog(ctx context.Context, input nativeInput
 		}
 	}
 	if query == "" && page == 1 && !input.Force {
-		if cached := engine.nativeCached(cacheKey); cached.Fresh {
+		cached := engine.nativeCached(cacheKey)
+		if cached.Fresh {
 			return cached, nil
+		}
+		// 有旧快照也先给：首屏不该等网络。
+		// 只要快照还在「可接受陈旧」范围内就直接返回，刷新交给后台
+		// warmCatalogs / 自动更新慢慢做；超过上限才同步联网，避免用户
+		// 打开时看到几个月前的内容。
+		if len(cached.Items) > 0 {
+			engine.mu.Lock()
+			updated := engine.catalogStates[cacheKey].UpdatedAt
+			engine.mu.Unlock()
+			if !updated.IsZero() &&
+				time.Since(updated) < nativeCatalogStaleServeLimit {
+				cached.Warning = joinNativeWarnings(cached.Warning, "已显示本地快照，正在后台更新剧库")
+				cached.HasMore = true
+				return cached, nil
+			}
 		}
 	}
 	d := engine.downloader
