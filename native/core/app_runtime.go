@@ -512,6 +512,8 @@ func nativeDispatch(input nativeInput) (any, error) {
 		return plan, err
 	case "catalog":
 		return engine.nativeCatalog(ctx, input)
+	case "cachedMany":
+		return engine.cachedMany(input.Sources), nil
 	case "cached":
 		if !validNativeCategory(canonicalProviderSource(input.Source), input.Category) {
 			return nil, errors.New("内容分类无效")
