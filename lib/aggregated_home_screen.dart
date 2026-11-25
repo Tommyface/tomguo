@@ -231,6 +231,7 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
     if (more ? _loadingMore : _loading) return;
     if (more && !_hasMore) return;
     final seq = ++_loadSeq;
+    final page = more ? _page + 1 : 1;
     // groupId 用请求语义拼成稳定值，不再用时间戳。
     // 原来每次新建 = Go 侧无法跨请求复用结果，切一次类型就全量重拉。
     final groupId = more || _groupId.isNotEmpty
@@ -246,7 +247,6 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
         _page = 1;
       }
     });
-    final page = more ? _page + 1 : 1;
     // 首帧先铺已缓存的各源目录，避免整屏转圈等待全部站源。
     if (!more && page == 1 && _items.isEmpty) {
       final cachedItems = await _cachedItems();
