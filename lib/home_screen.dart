@@ -1274,53 +1274,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   const VerticalDivider(width: 1, thickness: 1),
                 ],
                 Expanded(
-                  child: switch (_tab) {
-                    tabDiscover => widget.store.sources.isEmpty
-                        ? StatusPanel(
-                            icon: Icons.power_off_outlined,
-                            title: '暂无可用站源',
-                            message: '请联系管理员，或到「设置 → 播放源插件」导入插件。',
-                            action: '去导入插件',
-                            onRetry: () => _changeTab(tabSettings),
-                          )
-                        : _aggregateFirst
-                        ? AggregatedHomeView(
-                            key: const ValueKey('aggregate-view-tab'),
-                            repository: widget.repository,
-                            store: widget.store,
-                            controller: _aggregate,
-                            sources: _allSites(),
-                            catalogRevision: _catalogRevision,
-                          )
-                        : _catalog(selectionInBody: desktop || television),
-                    tabFollow => SavedLibrary(
-                        key: const ValueKey('saved-tab-follow'),
-                        repository: widget.repository,
-                        store: widget.store,
-                        history: false,
-                        onOpen: _openDrama,
-                        onContinue: (drama) =>
-                            _openDrama(drama, resume: true),
-                        onDownload:
-                            widget.repository.supportsDownloads &&
-                                    widget.store.canDownload
-                                ? (drama) => _openDrama(drama, download: true)
-                                : null,
-                      ),
-                    tabRanking => RankingsScreen(
-                        repository: widget.repository,
-                        store: widget.store,
-                        initialGroup: _group.id,
-                        embedded: true,
-                      ),
-                    tabSettings => SettingsScreen(
-                        repository: widget.repository,
-                        store: widget.store,
-                        embedded: true,
-                        onOpenHistory: () => _changeTab(tabFollow),
-                      ),
-                    _ => const SizedBox.shrink(),
-                  },
+                  child: _tabStack(
+                    desktop: desktop,
+                    television: television,
+                  ),
                 ),
               ],
             ),
@@ -1378,6 +1335,83 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     },
   );
+
+  /// 四个 tab 的常驻容器。
+  ///
+  /// 原来是 `switch (_tab)` 直接返回当前 tab 的 widget —— 切走时那棵子树
+  /// 被 dispose，切回来 initState 重跑、列表清空、重新联网。用户只是去
+  /// 设置页看了一眼，回来就得再等一轮。
+  ///
+  /// 改用 IndexedStack 之后四棵树都留在树上，只有可见性变化。为了不吃
+  /// 启动时的额外构建，用懒构建：第一次进某个 tab 才创建，之后常驻。
+  /// 已访问过的 tab。只记住「要不要构建」，不缓存 widget 实例 ——
+  /// Widget 是不可变的，缓存实例会把当时的 _items 一起冻结，数据更新不上。
+  final Set<int> _tabVisited = <int>{};
+
+  Widget _tabStack({required bool desktop, required bool television}) {
+    _tabVisited.add(_tab);
+    return IndexedStack(
+      index: _tab,
+      children: [
+        for (var index = tabDiscover; index <= tabSettings; index++)
+          // 没访问过的 tab 先占位，避免启动时把四个页面全构建一遍；
+          // 访问过之后每次 build 都重新构建，靠位置与类型复用 Element，
+          // 于是 State（滚动位置、已加载列表）保留，数据也保持最新。
+          _tabVisited.contains(index)
+              ? _buildTabPage(index, desktop: desktop, television: television)
+              : const SizedBox.shrink(),
+      ],
+    );
+  }
+
+  Widget _buildTabPage(
+    int tab, {
+    required bool desktop,
+    required bool television,
+  }) => switch (tab) {
+    tabDiscover => widget.store.sources.isEmpty
+        ? StatusPanel(
+            icon: Icons.power_off_outlined,
+            title: '暂无可用站源',
+            message: '请联系管理员，或到「设置 → 播放源插件」导入插件。',
+            action: '去导入插件',
+            onRetry: () => _changeTab(tabSettings),
+          )
+        : _aggregateFirst
+        ? AggregatedHomeView(
+            key: const ValueKey('aggregate-view-tab'),
+            repository: widget.repository,
+            store: widget.store,
+            controller: _aggregate,
+            sources: _allSites(),
+            catalogRevision: _catalogRevision,
+          )
+        : _catalog(selectionInBody: desktop || television),
+    tabFollow => SavedLibrary(
+        key: const ValueKey('saved-tab-follow'),
+        repository: widget.repository,
+        store: widget.store,
+        history: false,
+        onOpen: _openDrama,
+        onContinue: (drama) => _openDrama(drama, resume: true),
+        onDownload: widget.repository.supportsDownloads && widget.store.canDownload
+            ? (drama) => _openDrama(drama, download: true)
+            : null,
+      ),
+    tabRanking => RankingsScreen(
+        repository: widget.repository,
+        store: widget.store,
+        initialGroup: _group.id,
+        embedded: true,
+      ),
+    tabSettings => SettingsScreen(
+        repository: widget.repository,
+        store: widget.store,
+        embedded: true,
+        onOpenHistory: () => _changeTab(tabFollow),
+      ),
+    _ => const SizedBox.shrink(),
+  };
 
   Widget _catalog({required bool selectionInBody}) {
     final items = _visible;
