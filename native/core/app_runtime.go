@@ -522,6 +522,8 @@ func nativeDispatch(input nativeInput) (any, error) {
 		return map[string]any{"items": items}, err
 	case "sourceStatus":
 		return engine.sourceStatus(input.Source), nil
+	case "sourceStatuses":
+		return engine.sourceStatuses(input.Sources), nil
 	case "sourceJob":
 		return engine.startSourceTask(input.Source, input.Command, input.Drama)
 	case "cancelSourceJob":
