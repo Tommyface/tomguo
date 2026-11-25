@@ -485,11 +485,28 @@ class _HomeScreenState extends State<HomeScreen> {
     widget.store.addListener(_sourcesChanged);
     widget.repository.catalogUpdates.addListener(_metadataChanged);
     if (widget.store.sources.isNotEmpty) {
-      _load(useCache: true);
+      // 冷启动先把远端快照灌进 Go 内存缓存，再做首帧读取。
+      // 之前只在站源管理页手动点按钮才同步，App 一重启内存缓存就是空的，
+      // 首屏只能现场联网抓——看起来就像快照根本没起作用。
+      unawaited(_seedSnapshotThenLoad());
       _loadCategories();
     } else {
       _loading = false;
     }
+  }
+
+  /// 冷启动同步远端快照，再读缓存首帧。
+  /// 同步失败不阻塞首屏：本地 catalogs.json 仍可作为兜底。
+  Future<void> _seedSnapshotThenLoad() async {
+    try {
+      await widget.repository.syncCatalogSnapshot(
+        widget.store.sources.map((site) => site.id).toList(),
+      );
+    } catch (_) {
+      // 快照同步失败不影响后续本地缓存读取与现场抓取。
+    }
+    if (!mounted) return;
+    _load(useCache: true);
   }
 
   @override
@@ -594,9 +611,13 @@ class _HomeScreenState extends State<HomeScreen> {
         _loadingMore = false;
         _error = result.warning.isEmpty ? null : result.warning;
       });
-      unawaited(
-        saveUserChange(context, () => widget.store.refreshDramas(result.items)),
-      );
+      // 缓存/snapshots 里的数据就是从本地库读出来的，再写回去只会
+      // 多一次全量落盘，切 tab 时尤其明显。只有现场抓到的新数据才需要写。
+      if (!cached) {
+        unawaited(
+          saveUserChange(context, () => widget.store.refreshDramas(result.items)),
+        );
+      }
     }
 
     try {
@@ -731,11 +752,20 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _changeTab(int tab) => setState(() {
-    _tab = tab;
-    _selectionMode = false;
-    _selectedDramas.clear();
-  });
+  void _changeTab(int tab) {
+    final returningToDiscover = tab == tabDiscover && _tab != tabDiscover;
+    setState(() {
+      _tab = tab;
+      _selectionMode = false;
+      _selectedDramas.clear();
+    });
+    if (!returningToDiscover) return;
+    // 从设置/追剧/榜单切回首页：先吃本地快照 + 内存 session，
+    // 再由 CatalogBrowser 决定是否后台刷新。之前这里无条件 _load()，
+    // 用户只是去看了一眼设置，回来就重新联网抓一遍，既慢又像"快照没生效"。
+    // 缓存 fresh 时 CatalogBrowser 直接返回，不再联网。
+    _load(useCache: true);
+  }
 
   /// 连点「追剧」6 次弹出站源密码锁（用于启用 / 关闭密码功能）。
   /// v5：原触发点为「最近观看」，该 tab 被「榜单」取代后迁至「追剧」，
