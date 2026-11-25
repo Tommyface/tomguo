@@ -209,7 +209,7 @@ class DramaXCard extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ),
     );
   }
 
