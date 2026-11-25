@@ -91,6 +91,13 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _showRecommendations = false;
   final _recentTaps = RepeatTapGate();
   String _sourceSignature = '';
+  /// 首页真正依赖的 store 字段签名。
+  ///
+  /// 原来 build 用 AnimatedBuilder(animation: widget.store) 监听整个 store，
+  /// 它有 26 处 notify —— 后台追剧状态、导出设置、历史写入都会让整棵首页树
+  /// 重建，滑动时一重建，可见卡片连带 DramaCover 全部重新注册监听，掉帧
+  /// 就来自这里。改成只在下面这些字段真的变了才 setState。
+  String _homeSignature = '';
   bool _catalogLoadScheduled = false;
 
   /// 自定义筛选范围（多选站源面板）。空集表示不限。
@@ -209,7 +216,16 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
     final visible = widget.store.sources;
     final signature = visible.map((site) => site.id).join(',');
-    if (signature == _sourceSignature) return;
+    // catalogView 由 _chooseCatalogView 自己 setState，不进签名。
+    final nextHomeSignature =
+        '$signature|${widget.store.canDownload}|${widget.store.locked}';
+    final homeChanged = nextHomeSignature != _homeSignature;
+    _homeSignature = nextHomeSignature;
+    if (signature == _sourceSignature) {
+      // 站源没变，但下载权限/视图/锁定态变了 —— 只重建首页，不重新选源。
+      if (homeChanged) setState(() {});
+      return;
+    }
     final wasEmpty = _sourceSignature.isEmpty;
     _sourceSignature = signature;
     if (visible.isEmpty) {
@@ -922,9 +938,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: widget.store,
-    builder: (context, _) {
+  Widget build(BuildContext context) {
       _reconcileScope();
       return LayoutBuilder(
       builder: (context, constraints) {
@@ -1331,10 +1345,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: scaffold,
           ),
         );
-      },
-    );
-    },
-  );
+  }
 
   /// 四个 tab 的常驻容器。
   ///
