@@ -431,7 +431,10 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
                     sourceCount: item.sourceCount,
                     badge: ContentKind.labels[item.contentKind],
                   );
-                }, childCount: _items.length),
+                },
+                  childCount: _items.length,
+                  addAutomaticKeepAlives: false,
+                ),
               ),
             ),
             SliverToBoxAdapter(
