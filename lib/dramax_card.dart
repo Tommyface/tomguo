@@ -37,6 +37,18 @@ class DramaXCard extends StatelessWidget {
   final int sourceCount;
   final Widget? actions;
 
+  /// 海报解码宽度：按卡片实际宽度 × 设备像素比，封顶 440。
+  /// 原来所有卡片硬编码 440，两列手机上解码出的位图是显示尺寸的 2~3 倍，
+  /// 滑一屏要占几十 MB 纹理内存，掉帧就来自这里的解码与上传。
+  static int _coverCacheWidth(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final columns = width < 600 ? 2 : (width / 220).floor().clamp(3, 8);
+    final spacing = width < 600 ? 12.0 : 18.0;
+    final tile = (width - (columns - 1) * spacing) / columns;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    return (tile * dpr).round().clamp(120, 440);
+  }
+
   static double extentFor(BuildContext context, double width) {
     final scaler = MediaQuery.textScalerOf(context);
     return (width * 4 / 3 + 8 + scaler.scale(13) * 1.35 + 6 + scaler.scale(10) * 1.4)
@@ -46,7 +58,9 @@ class DramaXCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final gradient = DramaX.posterFor(drama.id);
-    return Material(
+    // 每张卡片独立重绘边界：滑动时一处的脏区不扩散到整屏卡片。
+    return RepaintBoundary(
+      child: Material(
       color: DramaX.card,
       borderRadius: BorderRadius.circular(DramaX.rLg - 2),
       clipBehavior: Clip.antiAlias,
@@ -75,6 +89,7 @@ class DramaXCard extends StatelessWidget {
                     drama: drama,
                     repository: repository,
                     radius: 0,
+                    cacheWidth: _coverCacheWidth(context),
                   ),
                   // 底部渐变遮罩，保证文字可读。
                   const DecoratedBox(
@@ -194,6 +209,7 @@ class DramaXCard extends StatelessWidget {
           ],
         ),
       ),
+    );
     );
   }
 
