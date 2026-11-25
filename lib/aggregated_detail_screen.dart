@@ -10,13 +10,18 @@ import 'models.dart';
 
 /// 一部聚合作品在某个站源上的加载状态。
 class _SourceState {
-  _SourceState(this.source);
+  _SourceState(this.source) : episodes = source.episodes;
 
   final AggregatedSource source;
-  int episodes = 0;
+  /// 初值直接取聚合结果里的集数。
+  ///
+  /// 聚合阶段 Go 侧已经按源算过 episodes，进详情页却又把这里置 0 重新
+  /// 拉一遍，用户看到的就是「所有行一起转圈」。现在先用现成数字渲染，
+  /// 后台校准到新值再替换；loading 只表示「正在校准」。
+  int episodes;
   String warning = '';
   String error = '';
-  bool loading = true;
+  bool loading = false;
 
   Drama toDrama(String fallbackTitle) => Drama(
     id: source.dramaId,
@@ -63,9 +68,11 @@ class _AggregatedDetailScreenState extends State<AggregatedDetailScreen> {
     unawaited(_refreshAll());
   }
 
-  /// 逐个源拉详情：3 并发，单源失败只标该行，不影响其他源。
+  /// 后台校准各源集数：3 并发，单源失败只标该行，不影响其他源。
+  ///
+  /// 只在数字真的变了才 setState，避免每个源完成都整页重建一次。
   Future<void> _refreshAll() async {
-    setState(() => _refreshing = true);
+    if (mounted) setState(() => _refreshing = true);
     var index = 0;
     Future<void> worker() async {
       while (index < _states.length) {
@@ -75,10 +82,17 @@ class _AggregatedDetailScreenState extends State<AggregatedDetailScreen> {
             state.toDrama(widget.item.title),
           );
           if (!mounted) return;
+          final next = detail.episodes.length > 0
+              ? detail.episodes.length
+              : state.source.episodes;
+          if (next == state.episodes &&
+              state.warning == detail.warning &&
+              state.error.isEmpty &&
+              !state.loading) {
+            continue;   // 没有变化就不重建
+          }
           setState(() {
-            state.episodes = detail.episodes.length > 0
-                ? detail.episodes.length
-                : state.source.episodes;
+            state.episodes = next;
             state.warning = detail.warning;
             state.error = '';
             state.loading = false;
