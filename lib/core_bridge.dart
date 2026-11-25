@@ -709,6 +709,9 @@ class NativeRepository extends AppRepository {
       }.contains(action)) {
         _authorize(input['source'] as String);
       }
+      if (action == 'flushCatalog') {
+        // 剧库落盘不涉及其它站源，直接放行。
+      }
       if (action == 'sourceStatuses' || action == 'cachedMany') {
         for (final source in (input['sources'] as List? ?? const [])) {
           _authorize(source as String);
@@ -874,6 +877,11 @@ class NativeRepository extends AppRepository {
         }),
       );
   @override
+  /// 让 Go 侧立刻把防抖窗口里的剧库写到磁盘。
+  Future<void> flushCatalog() async {
+    await _call({'action': 'flushCatalog'});
+  }
+
   Future<Map<String, CatalogPage>> cachedMany(List<String> sources) async {
     if (sources.isEmpty) return const <String, CatalogPage>{};
     final data = await _call({'action': 'cachedMany', 'sources': sources});
