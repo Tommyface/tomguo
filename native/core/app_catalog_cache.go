@@ -11,6 +11,10 @@ import (
 
 const nativeCatalogTTL = 15 * time.Minute
 
+// nativeCatalogStaleServeLimit 是「旧快照仍然先给用户看」的上限。
+// 超过这个时长就同步联网刷新，避免首屏长期停在陈旧内容上。
+const nativeCatalogStaleServeLimit = 6 * time.Hour
+
 type nativeCatalogState struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 	Page      int       `json:"page"`
@@ -285,20 +289,71 @@ func (engine *nativeEngine) saveCatalogCache(source string, result *nativeCatalo
 	if base, _, categorized := strings.Cut(source, "|"); categorized {
 		engine.catalogs[base] = mergeNativeCatalog(engine.catalogs[base], items)
 	}
-	err := engine.writeCatalogDiskLocked()
-	result.saveError = err
-	if err != nil {
-		result.Warning = joinNativeWarnings(result.Warning, err.Error())
+	// 不在这里同步落盘：一轮刷新会连续抓多个源，交给防抖定时器合并。
+	engine.scheduleCatalogSaveLocked()
+	result.saveError = engine.catalogSaveError
+	if result.saveError != nil {
+		result.Warning = joinNativeWarnings(result.Warning, result.saveError.Error())
 		result.Fresh, result.HasMore = false, true
 	}
-	return err
+	return result.saveError
 }
 
-func (engine *nativeEngine) writeCatalogDiskLocked() error {
+// nativeCatalogSaveDelay 是剧库落盘的防抖窗口。
+//
+// 一轮剧库刷新里每个站源抓完都会写一次，源越多写得越多。合并成一个窗口
+// 之后，连续抓取只在安静下来时落一次盘；加上写文件放到锁外，首页的
+// 读取类 IPC 不会被 IO 堵住。
+const nativeCatalogSaveDelay = 1200 * time.Millisecond
+
+// scheduleCatalogSaveLocked 申请一次延迟落盘；调用方必须持有 engine.mu。
+func (engine *nativeEngine) scheduleCatalogSaveLocked() {
+	if engine.catalogSaveTimer != nil {
+		engine.catalogSaveTimer.Stop()
+	}
+	engine.catalogSaveTimer = time.AfterFunc(nativeCatalogSaveDelay, func() {
+		engine.mu.Lock()
+		engine.catalogSaveTimer = nil
+		body, err := engine.marshalCatalogDiskLocked()
+		directory := engine.directory
+		engine.mu.Unlock()
+		if err == nil {
+			err = writeNativeCacheFile(filepath.Join(directory, "catalogs.json"), body)
+		}
+		engine.mu.Lock()
+		engine.catalogSaveError = nativeSaveError("剧库", err)
+		if err == nil {
+			engine.finishCatalogSaveLocked()
+		} else {
+			engine.markCatalogSavePendingLocked()
+		}
+		engine.mu.Unlock()
+	})
+}
+
+// flushCatalogSave 立即落盘并取消待执行的防抖定时器。
+// 切后台、退出前调用，避免最后一批更新丢在定时器里。
+func (engine *nativeEngine) flushCatalogSave() error {
+	engine.mu.Lock()
+	defer engine.mu.Unlock()
+	if engine.catalogSaveTimer != nil {
+		engine.catalogSaveTimer.Stop()
+		engine.catalogSaveTimer = nil
+	}
+	return engine.writeCatalogDiskLocked()
+}
+
+// marshalCatalogDiskLocked 序列化剧库快照；调用方必须持有 engine.mu。
+func (engine *nativeEngine) marshalCatalogDiskLocked() ([]byte, error) {
 	body, err := json.Marshal(nativeCatalogDisk{Version: 3, Catalogs: engine.catalogs, States: engine.catalogStates, Categories: engine.categoryOptions, HongguoApp: engine.hongguoCatalog, Recommendations: engine.recommendations})
 	if err == nil && len(body) > nativeCatalogMaxBytes {
 		err = errNativeCatalogLimit
 	}
+	return body, err
+}
+
+func (engine *nativeEngine) writeCatalogDiskLocked() error {
+	body, err := engine.marshalCatalogDiskLocked()
 	if err == nil {
 		err = writeNativeCacheFile(filepath.Join(engine.directory, "catalogs.json"), body)
 	}
