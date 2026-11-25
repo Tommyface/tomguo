@@ -85,6 +85,15 @@ class _AppBootstrapState extends State<AppBootstrap>
     if (state == AppLifecycleState.resumed && Platform.isAndroid) {
       unawaited(_refreshDevice());
     }
+    // 剧库写盘做了防抖（Go 侧 1.2s 窗口），切后台/退出前必须落地，
+    // 否则最后一批抓到的剧集会停在定时器里丢掉。
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
+      unawaited(
+        NativeRepository().flushCatalog().catchError((Object _) {}),
+      );
+    }
     if (!Platform.isIOS) return;
     final library = MediaLibrary.current;
     if (state == AppLifecycleState.paused ||
