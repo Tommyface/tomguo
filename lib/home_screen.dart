@@ -1630,6 +1630,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   delegate: SliverChildBuilderDelegate(
                                     (_, index) => _catalogTile(items[index]),
                                     childCount: items.length,
+                                    addAutomaticKeepAlives: false,
                                   ),
                                 ),
                               ),
