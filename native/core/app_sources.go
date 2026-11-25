@@ -122,6 +122,26 @@ func (engine *nativeEngine) saveSourceRecordsLocked() error {
 	return engine.sourceSaveError
 }
 
+// sourceStatuses 一次取多个站源的状态。轮询场景下每次 sourceStatus
+// 都是一次 IPC + 一次 isolate 冷启，10 个源就是 10 次；合并成单次调用后
+// 高频轮询的开销降到 1/10。全程只拿一次锁，状态快照彼此一致。
+func (engine *nativeEngine) sourceStatuses(sources []string) map[string]nativeSourceStatus {
+	out := make(map[string]nativeSourceStatus, len(sources))
+	engine.mu.Lock()
+	defer engine.mu.Unlock()
+	for _, raw := range sources {
+		source := canonicalProviderSource(raw)
+		if source == "" {
+			continue
+		}
+		if _, ok := out[source]; ok {
+			continue
+		}
+		out[source] = engine.sourceStatusLocked(source)
+	}
+	return out
+}
+
 func (engine *nativeEngine) sourceStatus(source string) nativeSourceStatus {
 	source = canonicalProviderSource(source)
 	engine.mu.Lock()
