@@ -759,6 +759,18 @@ class LocalStore extends ChangeNotifier {
   }) {
     final epoch = _epoch;
     final updates = dramas.toList();
+    if (updates.isEmpty) return Future<void>.value();
+    // 快速预筛：首屏几十部剧里，通常只有追剧中的、看过的、红果系列候选
+    // 这几类才需要更新。原实现不管有没有关系，先 `Map.of()` 拷贝四张表
+    // （可能上千条）再逐条比对，最后还要 jsonEncode 两遍全量比较。
+    // 这里先在队列外筛一遍，全都无关就直接返回，不进串行队列也不写盘。
+    final relevant = updates.where(
+      (drama) =>
+          _favorites.containsKey(drama.id) ||
+          _history.containsKey(drama.id) ||
+          (cacheSeriesCandidates && drama.source == SourceSite.hongguo.id),
+    );
+    if (relevant.isEmpty) return Future<void>.value();
     return _queue(() async {
       if (locked || epoch != _epoch) return;
       final changes = <String, Object>{};
