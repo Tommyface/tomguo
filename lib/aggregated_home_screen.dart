@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'aggregated_detail_screen.dart';
 import 'core_bridge.dart';
+import 'detail_screen.dart';
 import 'dramax_card.dart';
 import 'local_store.dart';
 import 'models.dart';
@@ -312,14 +313,34 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
     } catch (_) {}
   }
 
+  /// 聚合卡片的「主源」：可播放优先，其次集数最多。
+  ///
+  /// 需求是「点进详情页自动加载剧集最多的站源」。原来这里进的是一个
+  /// 中介列表页，用户还得自己挑一行 —— 既多一次点击，也把每个源的
+  /// 详情都拉了一遍才罢休。
+  AggregatedSource? _primarySource(AggregatedDrama item) {
+    if (item.sources.isEmpty) return null;
+    final sorted = [...item.sources]..sort((a, b) {
+      if (a.playable != b.playable) return a.playable ? -1 : 1;
+      if (a.episodes != b.episodes) return b.episodes.compareTo(a.episodes);
+      if (a.vip != b.vip) return a.vip ? 1 : -1;
+      return 0;
+    });
+    return sorted.first;
+  }
+
   void _openItem(AggregatedDrama item) {
-    if (item.sources.isEmpty) return;
+    final primary = _primarySource(item);
+    if (primary == null) return;
+    // 直接进主源详情；「切换源」作为详情页里的一个入口，不再挡在前面。
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => AggregatedDetailScreen(
-          item: item,
+        builder: (_) => DetailScreen(
+          drama: primary.toDrama(item.title),
           repository: widget.repository,
           store: widget.store,
+          switchSources: item.sources.length > 1 ? item.sources : const [],
+          switchTitle: item.title,
           adultView: _ctl.adultView,
         ),
       ),
