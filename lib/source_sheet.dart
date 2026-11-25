@@ -112,6 +112,9 @@ Future<Drama?> showSourceSheet(
   required AppRepository repository,
   required Drama drama,
   VoidCallback? onManage,
+  /// 聚合视图已知的同名候选（来自首页聚合结果）。
+  /// 传进来就先铺出来，用户不用等一轮跨源搜索。
+  List<Drama> preset = const [],
 }) => showModalBottomSheet<Drama>(
   context: context,
   isScrollControlled: true,
@@ -121,6 +124,7 @@ Future<Drama?> showSourceSheet(
     repository: repository,
     drama: drama,
     onManage: onManage,
+    preset: preset,
   ),
 );
 
@@ -129,10 +133,12 @@ class _SourceSheet extends StatefulWidget {
     required this.repository,
     required this.drama,
     this.onManage,
+    this.preset = const [],
   });
 
   final AppRepository repository;
   final Drama drama;
+  final List<Drama> preset;
   final VoidCallback? onManage;
 
   @override
@@ -150,6 +156,28 @@ class _SourceSheetState extends State<_SourceSheet> {
   @override
   void initState() {
     super.initState();
+    // 聚合视图已经把同名候选算好了，直接铺出来，后台再补一次完整搜索。
+    if (widget.preset.isNotEmpty) {
+      _candidates = [
+        for (final drama in widget.preset)
+          SourceCandidate(
+            id: drama.id,
+            source: drama.source,
+            sourceId: drama.sourceId,
+            title: drama.title,
+            episodes: drama.episodes,
+            vipEpisodes: 0,
+            playable: drama.episodes > 0,
+            lastPlayable: drama.episodes > 0,
+            score: drama.episodes,
+            error: '',
+            elapsedMs: 0,
+          ),
+      ]..sort((a, b) => b.health.compareTo(a.health));
+      _loading = false;
+      _auto = true;
+      return;   // 不自动搜索，等用户点「重新搜索」或首次下滑
+    }
     _search();
   }
 
