@@ -29,12 +29,20 @@ class DetailScreen extends StatefulWidget {
     required this.store,
     this.resumeOnOpen = false,
     this.downloadOnOpen = false,
+    this.switchSources = const [],
+    this.switchTitle = '',
+    this.adultView = false,
   });
   final Drama drama;
   final AppRepository repository;
   final LocalStore store;
   final bool resumeOnOpen;
   final bool downloadOnOpen;
+  /// 同一部剧在其它站源上的候选。非空时详情页提供「切换源」入口，
+  /// 用于主源播不了的情况 —— 聚合视图直接进主源，这里就是兜底。
+  final List<AggregatedSource> switchSources;
+  final String switchTitle;
+  final bool adultView;
   @override
   State<DetailScreen> createState() => _DetailScreenState();
 }
@@ -232,13 +240,22 @@ class _DetailScreenState extends State<DetailScreen> {
   }
 
   Future<void> _crossSource() async {
+    final currentDrama = _detail?.drama ?? widget.drama;
     final picked = await showSourceSheet(
       context,
       repository: widget.repository,
-      drama: widget.drama,
+      drama: currentDrama,
+      // 聚合视图带来的同名候选先铺出来，用户不用等跨源搜索。
+      preset: [
+        for (final candidate in widget.switchSources)
+          if (candidate.dramaId != currentDrama.id)
+            candidate.toDrama(widget.switchTitle.isEmpty
+                ? currentDrama.title
+                : widget.switchTitle),
+      ],
     );
     if (picked == null || !mounted) return;
-    final current = _detail?.drama ?? widget.drama;
+    final current = currentDrama;
     if (picked.id == current.id) return;
     // 换源后沿用原剧名与分类，其余字段（id/源/集数/封面）以新站源为准。
     final switched = Drama(
@@ -261,6 +278,10 @@ class _DetailScreenState extends State<DetailScreen> {
           drama: switched,
           repository: widget.repository,
           store: widget.store,
+          // 换源后仍保留候选列表，可以继续换。
+          switchSources: widget.switchSources,
+          switchTitle: widget.switchTitle,
+          adultView: widget.adultView,
         ),
       ),
     );
