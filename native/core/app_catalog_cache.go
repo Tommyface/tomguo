@@ -85,6 +85,41 @@ func migrateNativeDrama(drama nativeDrama) nativeDrama {
 	return drama
 }
 
+// cachedMany 一次取多个站源的目录缓存。首屏 read-through 场景下
+// 每源一次 cached IPC 会把首帧拆成 N 次调用；合并成单次后，
+// 首屏只读一次内存就拿到全部卡片。
+func (engine *nativeEngine) cachedMany(sources []string) map[string]nativeCatalogResult {
+	out := make(map[string]nativeCatalogResult, len(sources))
+	engine.mu.Lock()
+	defer engine.mu.Unlock()
+	for _, raw := range sources {
+		source := canonicalProviderSource(raw)
+		if source == "" {
+			continue
+		}
+		if _, ok := out[source]; ok {
+			continue
+		}
+		items := append([]nativeDrama{}, engine.catalogs[source]...)
+		for index := range items {
+			items[index].Cover = repairLegacyCoverURL(items[index])
+		}
+		state, found := engine.catalogStates[source]
+		age := time.Since(state.UpdatedAt)
+		result := nativeCatalogResult{
+			Items: items, Page: max(1, state.Page), HasMore: !found || state.HasMore,
+			Fresh: len(items) > 0 && state.Warning == "" && !state.UpdatedAt.IsZero() && age >= 0 && age < nativeCatalogTTL,
+			Warning: state.Warning,
+		}
+		if engine.catalogSaveError != nil {
+			result.Warning = joinNativeWarnings(result.Warning, engine.catalogSaveError.Error())
+			result.Fresh, result.HasMore = false, true
+		}
+		out[source] = result
+	}
+	return out
+}
+
 func (engine *nativeEngine) nativeCached(source string) nativeCatalogResult {
 	source = canonicalProviderSource(source)
 	engine.mu.Lock()
