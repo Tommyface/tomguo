@@ -223,6 +223,13 @@ class _CachedCoverImageState extends State<CachedCoverImage> {
   bool _retryOnFailure = false;
   bool _retryQueued = false;
   String? _failedPath;
+  bool _coverListenerAttached = false;
+
+  void _attachCoverListener() {
+    if (_coverListenerAttached || !mounted) return;
+    _coverListenerAttached = true;
+    widget.repository.catalogUpdates.addListener(_metadataChanged);
+  }
 
   @override
   void initState() {
@@ -230,7 +237,9 @@ class _CachedCoverImageState extends State<CachedCoverImage> {
     _coverRevision = widget.repository.catalogUpdates.coverRevision(
       widget.drama.id,
     );
-    widget.repository.catalogUpdates.addListener(_metadataChanged);
+    // 监听只用于「封面曾经失败 → 后台补到新封面时重试」。滑动时屏幕上
+    // 同时有几十张卡片，原来每张一进 initState 就注册全局 catalogUpdates
+    // 监听，一次目录更新就会广播到所有卡片。改成只有失败的卡片才订阅。
     _file = widget.repository.cover(widget.drama);
   }
 
@@ -238,8 +247,10 @@ class _CachedCoverImageState extends State<CachedCoverImage> {
   void didUpdateWidget(covariant CachedCoverImage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.repository != widget.repository) {
-      oldWidget.repository.catalogUpdates.removeListener(_metadataChanged);
-      widget.repository.catalogUpdates.addListener(_metadataChanged);
+      if (_coverListenerAttached) {
+        oldWidget.repository.catalogUpdates.removeListener(_metadataChanged);
+        widget.repository.catalogUpdates.addListener(_metadataChanged);
+      }
     }
     if (oldWidget.repository != widget.repository ||
         oldWidget.drama.id != widget.drama.id ||
@@ -278,7 +289,9 @@ class _CachedCoverImageState extends State<CachedCoverImage> {
 
   @override
   void dispose() {
-    widget.repository.catalogUpdates.removeListener(_metadataChanged);
+    if (_coverListenerAttached) {
+      widget.repository.catalogUpdates.removeListener(_metadataChanged);
+    }
     super.dispose();
   }
 
@@ -305,6 +318,7 @@ class _CachedCoverImageState extends State<CachedCoverImage> {
   Widget _failed(String? path) {
     _coverFailed = true;
     _failedPath = path;
+    _attachCoverListener();
     if (_retryOnFailure) _queueRetry();
     return Center(
       child: IconButton(
