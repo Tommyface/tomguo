@@ -94,10 +94,13 @@ class DramaCover extends StatelessWidget {
     required this.drama,
     required this.repository,
     this.radius = 14,
+    this.cacheWidth,
   });
   final Drama drama;
   final AppRepository repository;
   final double radius;
+  /// 海报解码宽度。传 null 时用原实现的 440。
+  final int? cacheWidth;
   static const imagesDisabled = bool.fromEnvironment('DISABLE_REMOTE_IMAGES');
 
   @override
@@ -131,6 +134,7 @@ class DramaCover extends StatelessWidget {
               drama: drama,
               repository: repository,
               placeholder: placeholder,
+              cacheWidth: cacheWidth,
             ),
           Positioned.fill(
             child: IgnorePointer(
@@ -208,10 +212,12 @@ class CachedCoverImage extends StatefulWidget {
     required this.drama,
     required this.repository,
     required this.placeholder,
+    this.cacheWidth,
   });
   final Drama drama;
   final AppRepository repository;
   final Widget placeholder;
+  final int? cacheWidth;
   @override
   State<CachedCoverImage> createState() => _CachedCoverImageState();
 }
@@ -345,7 +351,7 @@ class _CachedCoverImageState extends State<CachedCoverImage> {
       return Image.file(
         File(snapshot.data!),
         fit: BoxFit.cover,
-        cacheWidth: 440,
+        cacheWidth: widget.cacheWidth ?? 440,
         excludeFromSemantics: true,
         errorBuilder: (_, error, stack) => _failed(snapshot.data),
       );
