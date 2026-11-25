@@ -338,6 +338,8 @@ class _DetailScreenState extends State<DetailScreen> {
     if (!mounted || _profileEpoch != widget.store.profileEpoch) {
       return;
     }
+    // 起播失败时记下来，从播放器回来后给出换源出口。
+    String playbackError = '';
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => PlayerScreen(
@@ -346,11 +348,60 @@ class _DetailScreenState extends State<DetailScreen> {
           initialPosition: position,
           repository: widget.repository,
           store: widget.store,
+          onPlaybackFailed: (message) => playbackError = message,
         ),
       ),
     );
-    if (mounted) {
-      setState(() {});
+    if (!mounted) return;
+    setState(() {});
+    if (playbackError.isNotEmpty) {
+      await _offerSourceSwitch(playbackError);
+    }
+  }
+
+  /// 当前站源播不了时，主动提供换源出口。
+  ///
+  /// 聚合视图里同一部剧往往有多个源，换源是比「重试」更可能成功的操作，
+  /// 所以放在失败提示的第一位。
+  Future<void> _offerSourceSwitch(String message) async {
+    if (widget.switchSources.length <= 1) {
+      // 没有其它候选就只提示，不弹无意义的换源按钮。
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('这一集播不了'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('知道了'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('这个站源播不了这一集'),
+        content: Text('$message\n\n同一部剧还有其它站源，可以换一个试试。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('留在这里'),
+          ),
+          FilledButton(
+            autofocus: AppLayout.isTelevision(context),
+            onPressed: () => Navigator.pop(context, 'switch'),
+            child: const Text('切换站源'),
+          ),
+        ],
+      ),
+    );
+    if (choice == 'switch' && mounted) {
+      await _crossSource();
     }
   }
 
