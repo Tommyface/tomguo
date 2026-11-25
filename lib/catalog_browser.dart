@@ -223,25 +223,59 @@ class CatalogBrowser {
     }
 
     if ((useCache || cacheOnly) && !force && !more && query.isEmpty) {
-      await _each(sourceOrder, (source) async {
+      final plainSources = sourceOrder
+          .where((source) => (requests[source] ?? '').isEmpty)
+          .toList();
+      final categorized = sourceOrder
+          .where((source) => (requests[source] ?? '').isNotEmpty)
+          .toList();
+      // 无分类的站源一次 IPC 全部取回。原先是每源一次 cached()，
+      // 10 个源就是 10 次 isolate 往返，首屏卡片出来前全在排队。
+      if (plainSources.isNotEmpty) {
         try {
-          final cached = await repository.cached(
-            source,
-            category: requests[source]!,
-          );
-          if (generation != session.generation || cached.items.isEmpty) return;
-          final entry = session.entries[source]!;
-          entry.items = cached.items;
-          entry.page = cached.page;
-          entry.nextPage = cached.page + 1;
-          entry.hasMore = cached.hasMore || cached.warning.isNotEmpty;
-          entry.fresh = cached.fresh && cached.warning.isEmpty;
-          if (cached.warning.isNotEmpty) failures[source] = cached.warning;
-          _remember(source, cached.items);
+          final many = await repository.cachedMany(plainSources);
+          if (generation == session.generation) {
+            for (final source in plainSources) {
+              final cached = many[source];
+              if (cached == null || cached.items.isEmpty) continue;
+              final entry = session.entries[source]!;
+              entry.items = cached.items;
+              entry.page = cached.page;
+              entry.nextPage = cached.page + 1;
+              entry.hasMore = cached.hasMore || cached.warning.isNotEmpty;
+              entry.fresh = cached.fresh && cached.warning.isEmpty;
+              if (cached.warning.isNotEmpty) failures[source] = cached.warning;
+              _remember(source, cached.items);
+            }
+          }
         } catch (error) {
-          if (cacheOnly) failures[source] = error.toString();
+          if (cacheOnly) {
+            for (final source in plainSources) failures[source] = error.toString();
+          }
         }
-      });
+      }
+      // 带分类的仍走单源：分类键不同，不能混在一次批量里。
+      if (categorized.isNotEmpty) {
+        await _each(categorized, (source) async {
+          try {
+            final cached = await repository.cached(
+              source,
+              category: requests[source]!,
+            );
+            if (generation != session.generation || cached.items.isEmpty) return;
+            final entry = session.entries[source]!;
+            entry.items = cached.items;
+            entry.page = cached.page;
+            entry.nextPage = cached.page + 1;
+            entry.hasMore = cached.hasMore || cached.warning.isNotEmpty;
+            entry.fresh = cached.fresh && cached.warning.isEmpty;
+            if (cached.warning.isNotEmpty) failures[source] = cached.warning;
+            _remember(source, cached.items);
+          } catch (error) {
+            if (cacheOnly) failures[source] = error.toString();
+          }
+        });
+      }
       if (generation != session.generation) return snapshot();
       final cached = snapshot();
       if (cached.items.isNotEmpty) onCached?.call(cached);
