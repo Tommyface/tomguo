@@ -1345,6 +1345,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: scaffold,
           ),
         );
+      });
   }
 
   /// 四个 tab 的常驻容器。
