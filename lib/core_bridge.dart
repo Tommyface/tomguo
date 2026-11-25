@@ -253,6 +253,9 @@ abstract class AppRepository {
     bool force = false,
   });
   Future<CatalogPage> cached(String source, {String category = ''});
+  /// 一次取多个站源的目录缓存，供首屏单 IPC 读取。
+  Future<Map<String, CatalogPage>> cachedMany(List<String> sources) async =>
+      const <String, CatalogPage>{};
   Future<String> cover(Drama drama, {bool force = false});
   Future<DramaDetail> detail(Drama drama);
   Future<Map<String, dynamic>> crossSource(
@@ -706,7 +709,7 @@ class NativeRepository extends AppRepository {
       }.contains(action)) {
         _authorize(input['source'] as String);
       }
-      if (action == 'sourceStatuses') {
+      if (action == 'sourceStatuses' || action == 'cachedMany') {
         for (final source in (input['sources'] as List? ?? const [])) {
           _authorize(source as String);
         }
@@ -870,6 +873,19 @@ class NativeRepository extends AppRepository {
           'category': category,
         }),
       );
+  @override
+  Future<Map<String, CatalogPage>> cachedMany(List<String> sources) async {
+    if (sources.isEmpty) return const <String, CatalogPage>{};
+    final data = await _call({'action': 'cachedMany', 'sources': sources});
+    final out = <String, CatalogPage>{};
+    data.forEach((key, value) {
+      if (value is Map) {
+        out[key] = CatalogPage.fromJson(Map<String, dynamic>.from(value));
+      }
+    });
+    return out;
+  }
+
   @override
   Future<String> cover(Drama drama, {bool force = false}) async {
     final epoch = access?.profileEpoch;
