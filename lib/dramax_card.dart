@@ -75,32 +75,15 @@ class DramaXCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // 海报底：真实封面加载前先铺设计稿的径向渐变。
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: RadialGradient(
-                        center: const Alignment(-0.44, -0.56),
-                        radius: 1.1,
-                        colors: gradient,
-                      ),
-                    ),
-                  ),
+                  // 海报底与底部渐变遮罩都由 DramaCover 内部提供，这里不再
+                  // 各铺一层 —— 两层渐变叠在一起既看不出差别，又让每张卡
+                  // 多两个 RenderObject，一屏六张就是十二层多余的合成。
                   DramaCover(
                     drama: drama,
                     repository: repository,
                     radius: 0,
+                    background: gradient,
                     cacheWidth: _coverCacheWidth(context),
-                  ),
-                  // 底部渐变遮罩，保证文字可读。
-                  const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        stops: [0.38, 1],
-                        colors: [Color(0x00000000), Color(0xD1000000)],
-                      ),
-                    ),
                   ),
                   if (drama.episodes > 0)
                     Positioned(
