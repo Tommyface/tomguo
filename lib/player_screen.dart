@@ -54,6 +54,7 @@ class PlayerScreen extends StatefulWidget {
     this.playerFactory,
     this.videoBuilder,
     this.handoff,
+    this.onPlaybackFailed,
   });
   final DramaDetail detail;
   final int initialIndex;
@@ -61,6 +62,8 @@ class PlayerScreen extends StatefulWidget {
   final bool localOnly;
   final bool allowOnlineFallback;
   final String? mediaId;
+  /// 起播失败时通知调用方（详情页据此提供「换源」出口）。
+  final void Function(String message)? onPlaybackFailed;
   final AppRepository repository;
   final LocalStore store;
   final LanIncomingPlayback? handoff;
@@ -1112,6 +1115,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                   (widget.localOnly && !_forceOnline);
               _error = error is AppFailure ? error.message : '无法播放这一集，请重试或换一集。';
               widget.handoff?.fail(_error!);
+              widget.onPlaybackFailed?.call(_error!);
             });
           }
         }
