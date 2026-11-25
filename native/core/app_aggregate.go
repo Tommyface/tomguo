@@ -263,7 +263,21 @@ func aggregateByTitleTagged(perSource map[string][]nativeDrama, adultView, sourc
 	return out
 }
 
-func (engine *nativeEngine) nativeAggregateCatalog(ctx context.Context, input nativeInput) (nativeAggregateResult, error) {
+func (engine *nativeEngine) nativeAggregateCatalog(ctx context.Context, input nativeInput) (result nativeAggregateResult, err error) {
+	// 完整聚合结果短期复用：切类型/切视图来回翻时不再每轮重新联网。
+	// refine 是后台补拉，必须绕过缓存；分页只缓存当前页。
+	if !input.Refine && strings.TrimSpace(input.Query) == "" {
+		key := aggregateCacheKey(input)
+		if hit, ok := aggregateResultCached(key); ok {
+			hit.Cached = true
+			return hit, nil
+		}
+		defer func() {
+			if err == nil {
+				aggregateResultRemember(key, result)
+			}
+		}()
+	}
 	sources := input.Sources
 	if len(sources) == 0 {
 		sources = crossSourceOrder
@@ -286,7 +300,7 @@ func (engine *nativeEngine) nativeAggregateCatalog(ctx context.Context, input na
 			}
 			items = filtered
 		}
-		result := nativeAggregateResult{
+		result = nativeAggregateResult{
 			Items: items, Page: 1, TotalSources: len(sources), FailedSources: failed,
 			HasMore: true, Partial: true, GroupID: input.GroupID,
 		}
@@ -314,7 +328,7 @@ func (engine *nativeEngine) nativeAggregateCatalog(ctx context.Context, input na
 		}
 		sourceSet[source] = true
 	}
-	result := nativeAggregateResult{
+	result = nativeAggregateResult{
 		Items: items, Page: max(1, input.Page), TotalSources: len(sourceSet), FailedSources: failed,
 		HasMore: len(items) >= 30,
 	}
