@@ -59,6 +59,70 @@ String _nativeRequest(String body) {
   }
 }
 
+/// 常驻 isolate 工作池。
+///
+/// Isolate.run 每次调用都要 spawn + 重新 lookup 动态库符号，低频无感，
+/// 高频轮询（每 2 秒一轮、每轮多源）时会把主线程切成碎片。这里复用
+/// Xanerix 的池化思路：最多 8 个 worker 常驻，调用完归还；超时或出错的
+/// worker 直接丢弃，下次重新 spawn，避免脏状态串到下一次请求。
+abstract final class _NativeWorkers {
+  static const int _maxIdle = 8;
+  static final List<SendPort> _idle = <SendPort>[];
+
+  static Future<String> request(String body, {required Duration timeout}) async {
+    final worker = _idle.isNotEmpty ? _idle.removeLast() : await _spawn();
+    final reply = ReceivePort();
+    var reusable = false;
+    try {
+      worker.send((body, reply.sendPort));
+      final result = await reply.first.timeout(timeout)
+          as ({String? value, Object? error, StackTrace? stack});
+      reusable = true; // 得到应答说明 worker 已空闲，可以复用。
+      if (result.error != null) {
+        Error.throwWithStackTrace(result.error!, result.stack ?? StackTrace.empty);
+      }
+      return result.value!;
+    } finally {
+      reply.close();
+      // 超时/异常时丢弃该 worker：任务仍可能在那边跑，归还会让后续请求
+      // 排队到它后面，反而放大一次超时的代价。
+      if (reusable && _idle.length < _maxIdle) _idle.add(worker);
+    }
+  }
+
+  static Future<SendPort> _spawn() async {
+    final ready = ReceivePort();
+    await Isolate.spawn(_serve, ready.sendPort);
+    return await ready.first as SendPort;
+  }
+
+  static void _serve(SendPort ready) {
+    final requests = ReceivePort();
+    ready.send(requests.sendPort);
+    requests.listen((message) {
+      if (message == null) return requests.close();
+      final (String body, SendPort reply) = message as (String, SendPort);
+      try {
+        reply.send((
+          value: _nativeRequest(body),
+          error: null,
+          stack: null,
+        ));
+      } catch (error, stack) {
+        try {
+          reply.send((value: null, error: error, stack: stack));
+        } catch (_) {
+          reply.send((
+            value: null,
+            error: RemoteError('$error', '$stack'),
+            stack: stack,
+          ));
+        }
+      }
+    });
+  }
+}
+
 class AppFailure implements Exception {
   AppFailure(this.message, {this.code = ''});
   final String message;
@@ -125,6 +189,9 @@ abstract class AppRepository {
 
   Future<SourceStatus> sourceStatus(String source) async =>
       SourceStatus.fromJson({'source': source});
+  /// 一次取全部站源状态，替代 N 次串行 IPC。
+  Future<Map<String, SourceStatus>> sourceStatuses(List<String> sources) async =>
+      const <String, SourceStatus>{};
   Future<SourceStatus> startSourceJob(
     String source,
     String operation, {
@@ -485,6 +552,19 @@ class NativeRepository extends AppRepository {
       );
 
   @override
+  Future<Map<String, SourceStatus>> sourceStatuses(List<String> sources) async {
+    if (sources.isEmpty) return const <String, SourceStatus>{};
+    final data = await _call({'action': 'sourceStatuses', 'sources': sources});
+    final out = <String, SourceStatus>{};
+    data.forEach((key, value) {
+      if (value is Map) {
+        out[key] = SourceStatus.fromJson(Map<String, dynamic>.from(value));
+      }
+    });
+    return out;
+  }
+
+  @override
   Future<SourceStatus> startSourceJob(
     String source,
     String operation, {
@@ -626,6 +706,11 @@ class NativeRepository extends AppRepository {
       }.contains(action)) {
         _authorize(input['source'] as String);
       }
+      if (action == 'sourceStatuses') {
+        for (final source in (input['sources'] as List? ?? const [])) {
+          _authorize(source as String);
+        }
+      }
       if (action == 'warmCatalogs') {
         for (final source in (input['sources'] as List? ?? const [])) {
           _authorize(source as String);
@@ -664,8 +749,9 @@ class NativeRepository extends AppRepository {
         input['force'] = true;
       }
       final body = jsonEncode(input);
-      final encoded = await Isolate.run(() => _nativeRequest(body)).timeout(
-        Duration(
+      final encoded = await _NativeWorkers.request(
+        body,
+        timeout: Duration(
           seconds: action == 'moveDownloads'
               ? 620
               : action == 'crossSource' || action.startsWith('aggregate')
