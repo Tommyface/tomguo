@@ -81,21 +81,28 @@ class LibraryUpdater extends ChangeNotifier {
     if (_polling || !_valid || !repository.supportsSourceManagement) return;
     _polling = true;
     try {
-      for (final source in store.sources) {
+      final ids = store.sources.map((source) => source.id).toList();
+      if (ids.isEmpty) return;
+      // 单次 IPC 取回全部源状态。原先是每源一次 sourceStatus：10 个源
+      // 每 10 秒就有 10 次 isolate 冷启，主列表会一顿一顿的。
+      final statuses = await repository.sourceStatuses(ids);
+      for (final id in ids) {
         if (!_valid) return;
-        final revision = _revisions[source.id] ?? 0;
-        try {
-          final status = await repository.sourceStatus(source.id);
-          if (_valid && revision == (_revisions[source.id] ?? 0)) {
-            _accept(status);
-            if (_valid && !status.running) {
-              unawaited(_extendCatalog(source.id));
-            }
+        final revision = _revisions[id] ?? 0;
+        final status = statuses[id];
+        if (status != null && revision == (_revisions[id] ?? 0)) {
+          _accept(status);
+          if (_valid && !status.running) {
+            unawaited(_extendCatalog(id));
           }
-        } catch (error) {
-          if (_valid && revision == (_revisions[source.id] ?? 0)) {
-            _errors[source.id] = error.toString();
-          }
+        } else if (status == null && revision == (_revisions[id] ?? 0)) {
+          _errors[id] = '未取到站源状态';
+        }
+      }
+    } catch (error) {
+      if (_valid) {
+        for (final id in store.sources.map((s) => s.id)) {
+          _errors[id] = error.toString();
         }
       }
     } finally {
