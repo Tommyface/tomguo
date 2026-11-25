@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'aggregated_detail_screen.dart';
 import 'core_bridge.dart';
 import 'detail_screen.dart';
 import 'dramax_card.dart';
