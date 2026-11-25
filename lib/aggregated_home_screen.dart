@@ -12,6 +12,9 @@ import 'models.dart';
 ///
 /// 只存本页视图状态（普通/成人、当前类型），不落盘、不带解锁语义；
 /// 杀掉 App 重进就回到普通视图。
+/// 聚合视图里「什么变了」。
+enum AggregateChange { kind, view, sources }
+
 class AggregateController extends ChangeNotifier {
   AggregateController({bool adultView = false, String kind = ContentKind.all})
     : _adultView = adultView,
@@ -19,26 +22,33 @@ class AggregateController extends ChangeNotifier {
 
   bool _adultView;
   String _kind;
+  /// 最近一次变更的类型。视图切换与数据范围变化要用不同策略处理：
+  /// 前者只重排已有数据，后者才需要重新取数据。
+  AggregateChange _lastChange = AggregateChange.sources;
   /// 用户勾选进入聚合的站源；空集合表示"全部按当前视图分类"。
   Set<String> _selectedSources = <String>{};
 
   bool get adultView => _adultView;
   String get kind => _kind;
   Set<String> get selectedSources => Set.unmodifiable(_selectedSources);
+  AggregateChange get lastChange => _lastChange;
 
   void setSelectedSources(Iterable<String> ids) {
     _selectedSources = ids.toSet();
+    _lastChange = AggregateChange.sources;
     notifyListeners();
   }
 
   void setKind(String value) {
     if (_kind == value) return;
     _kind = value;
+    _lastChange = AggregateChange.kind;
     notifyListeners();
   }
 
   void toggleView() {
     _adultView = !_adultView;
+    _lastChange = AggregateChange.view;
     notifyListeners();
   }
 }
@@ -81,6 +91,9 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
   Set<String> _adultSources = const {};
   String _groupId = '';
   int _loadSeq = 0;
+  /// 最近一次真正联网聚合的时间，用来给视图切换做节流。
+  DateTime _lastNetworkAt = DateTime.fromMillisecondsSinceEpoch(0);
+  (String, List<String>)? _sourceIdsCache;
 
   AggregateController get _ctl => widget.controller;
 
@@ -130,16 +143,35 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
     }
     _adultSources = next;
     _groupId = '';
-    _loadSeq++;
-    setState(() => _items = const []);
-    _load();
+    // 同样不清屏：站源打标变化后用缓存重排，再视情况联网。
+    unawaited(_refreshFromCache(change: AggregateChange.sources));
   }
 
   void _onControllerChanged() {
+    final change = _ctl.lastChange;
     _groupId = '';
-    _loadSeq++;
-    setState(() => _items = const []);
-    _load();
+    // 不再清空 _items：清空会让用户看到整屏闪掉再回来，也丢了滚动位置。
+    // 三类变更统一先拿内存缓存重排（Go 侧 aggregateCached，毫秒级），
+    // 只有「站源范围变了」或「缓存太久」才继续走网络补充。
+    unawaited(_refreshFromCache(change: change));
+  }
+
+  /// 缓存优先重排；必要时再联网。
+  ///
+  /// 之前的做法是任何控制器变更都 `_items = []` + 联网，切一次类型 Tab
+  /// 就要等一轮网络。现在视图类变更（类型/普通成人）只重排已有数据。
+  Future<void> _refreshFromCache({required AggregateChange change}) async {
+    final seq = ++_loadSeq;
+    final cached = await _cachedItems();
+    if (!mounted || seq != _loadSeq) return;
+    if (cached.isNotEmpty) {
+      setState(() => _items = cached);
+    }
+    final stale =
+        DateTime.now().difference(_lastNetworkAt) > const Duration(minutes: 2);
+    if (change == AggregateChange.sources || stale || cached.isEmpty) {
+      if (mounted && seq == _loadSeq) await _load();
+    }
   }
 
   /// 成人源标记由「站源管理」手动打标（LocalStore.sourceTags），
@@ -157,15 +189,26 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
     await _load();
   }
 
+  /// 当前参与聚合的站源。
+  ///
+  /// 这个列表每次 build、每次请求都要用，原来是个每次遍历全部站源 + 集合
+  /// 判断的 getter。按「成人视图 / 选中集合 / 打标结果 / 站源列表」四项
+  /// 做键缓存，键没变就直接返回上次结果。
   List<String> get _sourceIds {
     final wantAdult = _ctl.adultView;
-    final ids = <String>[];
     final selected = _ctl.selectedSources;
+    final key =
+        '${wantAdult}|${selected.join(',')}|${widget.sources.map((s) => s.id).join(',')}|'
+        '${_adultSources.join(',')}';
+    final cached = _sourceIdsCache;
+    if (cached != null && cached.$1 == key) return cached.$2;
+    final ids = <String>[];
     for (final source in widget.sources) {
       if (_adultSources.contains(source.id) != wantAdult) continue;
       if (selected.isNotEmpty && !selected.contains(source.id)) continue;
       ids.add(source.id);
     }
+    _sourceIdsCache = (key, ids);
     return ids;
   }
 
@@ -210,6 +253,7 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
       }
     }
     try {
+      _lastNetworkAt = DateTime.now();
       final result = await widget.repository.aggregateCatalog(
         sources: _sourceIds,
         page: page,
