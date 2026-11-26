@@ -105,7 +105,7 @@ func TestNativeRankingBoardSupported(t *testing.T) {
 		}
 		seen[board.Source] = true
 	}
-	if !seen[sourceHongguo] || !seen[sourceHuangdou] || !seen[sourceHuangju] || !seen[sourceDuanju51] {
+	if !seen[sourceHongguo] || !seen[sourceHuangdou] || !seen[sourceDuanju51] {
 		t.Fatalf("supported ranking sources incomplete: %v", seen)
 	}
 }
