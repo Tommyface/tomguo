@@ -11,14 +11,31 @@ import (
 	"github.com/dop251/goja"
 )
 
-// moduleInvoker 把 exports[name] 包成同步调用，进出都是 JSON 字符串。
+// moduleInvoker 把 exports[name] 包成统一调用，进出都是 JSON 字符串。
+//
+// api 1 模块导出同步函数，api 2 模块导出 async 函数（返回 Promise）。
+// 调用方只传一个回调：同步结果立即回调，Promise 结果在 resolve/reject 时回调。
+// Go 侧在 eventloop 上运行这段代码，因此 JS 的 await / Promise.all 可以真正并发。
 var moduleInvoker = goja.MustCompile("module-invoker", `(function(exports) {
-	return function(name, encoded) {
+	return function(name, encoded, callback) {
 		var target = exports[name];
 		if (typeof target !== "function") throw new Error("模块未导出函数 " + name);
-		var result = target.apply(exports, JSON.parse(encoded));
-		if (result instanceof Promise) throw new Error("模块函数 " + name + " 不能是异步函数");
-		return JSON.stringify(result === undefined ? null : result);
+		var result;
+		try {
+			result = target.apply(exports, JSON.parse(encoded));
+		} catch (error) {
+			callback(null, String(error && error.message ? error.message : error));
+			return;
+		}
+		if (result && typeof result.then === "function") {
+			result.then(function(value) {
+				callback(JSON.stringify(value === undefined ? null : value), null);
+			}, function(error) {
+				callback(null, String(error && error.message ? error.message : error));
+			});
+			return;
+		}
+		callback(JSON.stringify(result === undefined ? null : result), null);
 	};
 })`, true)
 
