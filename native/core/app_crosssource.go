@@ -47,13 +47,10 @@ const (
 var crossSourceOrder = []string{
 	sourceChengguo,
 	sourceHuangju,
-	sourceGuipian,
 	sourceHanxiaoquan,
 	sourceDuanju51,
 	sourceHuangdou,
 	sourceHema,
-	sourceEZDMW,
-	sourceSorani,
 	sourceHongguo,
 }
 
@@ -80,9 +77,6 @@ func (d *Downloader) crossSourceSearch(ctx context.Context, source, query string
 	case sourceHuangju:
 		items, _, err := d.fetchHuangjuCatalogPage(ctx, 1, "", query)
 		return items, err
-	case sourceGuipian:
-		items, _, err := d.fetchGuipianCatalogPage(ctx, 1, "", query)
-		return items, err
 	case sourceHanxiaoquan:
 		items, _, err := d.fetchHanxiaoquanCatalogPage(ctx, 1, "", query)
 		return items, err
@@ -91,12 +85,6 @@ func (d *Downloader) crossSourceSearch(ctx context.Context, source, query string
 		return items, err
 	case sourceHema:
 		items, _, err := d.fetchHemaCatalogPage(ctx, 1, "", query)
-		return items, err
-	case sourceEZDMW:
-		items, _, err := d.fetchEZDMWCatalogPage(ctx, 1, "", query)
-		return items, err
-	case sourceSorani:
-		items, _, err := d.fetchSoraniCatalogPage(ctx, 1, "", query)
 		return items, err
 	case sourceYeguo:
 		items, _, err := d.fetchYeguoCatalogPage(ctx, 1, "", query)
