@@ -100,10 +100,6 @@ var builtinCatalogTable = map[string]builtinCatalogFunc{
 	sourceHuangguoSelected: portalCatalogLoader(sourceHuangguoSelected),
 	sourceHuangguoWelfare:  portalCatalogLoader(sourceHuangguoWelfare),
 
-	sourceHuaguo:  malformedMaccms(sourceHuaguo),
-	sourceWangguo: malformedMaccms(sourceWangguo),
-	sourceFaguo:   malformedMaccms(sourceFaguo),
-	sourceWuguo:   malformedMaccms(sourceWuguo),
 	sourceHuangguoVideo: func(engine *nativeEngine, d *Downloader, ctx context.Context, page int, category, query string) (builtinCatalogOutcome, error) {
 		address := fmt.Sprintf("%s/videos?page=%d", d.providerBaseURL(sourceHuangguoVideo), page)
 		if category != "" {
