@@ -49,9 +49,9 @@ func TestSourceRegistryRejectsUnknown(t *testing.T) {
 }
 
 func TestSourceRegistryCoversAllBuiltinSources(t *testing.T) {
-	// 内置源数量是重构基线：S7 迁移后从 26 降到 7，后续只减不增。
-	if got := len(builtinSourceSpecs); got != 7 {
-		t.Fatalf("内置源数量为 %d，期望 7", got)
+	// 主程序不内置任何站源：S7 完成后基线为 0，后续只减不增（已到 0）。
+	if got := len(builtinSourceSpecs); got != 0 {
+		t.Fatalf("内置源数量为 %d，期望 0（主程序不应预置站源）", got)
 	}
 	seen := make(map[string]bool, len(builtinSourceSpecs))
 	for _, id := range builtinSourceIDs() {
