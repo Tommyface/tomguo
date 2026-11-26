@@ -1,0 +1,17 @@
+{
+  "id": "huaguo",
+  "name": "花果",
+  "version": "1.0.0",
+  "description": "花果短剧：MacCMS 模板站源，列表/详情/播放全链路采集。",
+  "runtime": "js",
+  "api": 1,
+  "adult": false,
+  "hosts": [
+    "www.zywest263.com"
+  ],
+  "capabilities": [
+    "cover"
+  ],
+  "allowEmptyCatalog": true,
+  "mainSha256": "e92d3f3eca245f51c249b529ff11869b11016c350396855a5d54f0f28f8a1bfe"
+}
