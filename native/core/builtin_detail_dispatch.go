@@ -115,9 +115,6 @@ var builtinDetailTable = map[string]builtinDetailFunc{
 		title, chapters, err := d.GetHuangguoChapters(ctx, source, sourceID)
 		return builtinDetailOutcome{Title: title, Chapters: chapters}, err
 	},
-	sourceHuakui: simpleDetail(func(d *Downloader, ctx context.Context, sourceID string) (Drama, []Chapter, error) {
-		return d.fetchHuakuiDetail(ctx, sourceID)
-	}),
 	sourceChengguo: simpleDetail(func(d *Downloader, ctx context.Context, sourceID string) (Drama, []Chapter, error) {
 		return d.fetchChengguoDetail(ctx, sourceID)
 	}),
