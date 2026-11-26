@@ -1,0 +1,20 @@
+{
+  "id": "huakui",
+  "name": "花魁短剧",
+  "version": "1.0.0",
+  "description": "花魁短剧：Next.js 站点，卡片与 RSC 数据互补取封面；详情与播放走 /drama/<slug>/<章节ID>/，媒体地址是 /h5/m3u8/ 相对路径。",
+  "runtime": "js",
+  "api": 1,
+  "adult": true,
+  "hosts": [
+    "huakui.net"
+  ],
+  "capabilities": [
+    "cover"
+  ],
+  "allowEmptyCatalog": true,
+  "mainSha256": "fbad96b9418cb29e3efc1e73dee7b85b7123fc0fbc39bfbbba135e3597c26cdb",
+  "coverHosts": [
+    "huakui.net"
+  ]
+}
