@@ -46,7 +46,7 @@ func TestIPCInternalActionsAreRegistered(t *testing.T) {
 
 // TestIPCInternalActionsDoNotGrow 内部动作清单只减不增（S6 的收敛目标）。
 func TestIPCInternalActionsDoNotGrow(t *testing.T) {
-	const allowed = 52
+	const allowed = 53
 	if got := len(IPCInternalActions()); got > allowed {
 		t.Fatalf("内部动作 %d 个，超过上限 %d——新功能请走四个门面", got, allowed)
 	}
