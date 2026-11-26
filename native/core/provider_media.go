@@ -64,10 +64,6 @@ func (d *Downloader) providerBaseURL(source string) string {
 		fallback = faguoBaseURL
 	case sourceWuguo:
 		fallback = wuguoBaseURL
-	case sourceMxdm:
-		fallback = mxdmBaseURL
-	case sourceJcydm:
-		fallback = jcydmBaseURL
 	default:
 		fallback = "https://d2pypzndaqisk.cloudfront.net"
 	}
