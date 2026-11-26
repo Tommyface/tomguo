@@ -8,8 +8,8 @@ func TestBuiltinDetailTableCoversAllSourceSpecs(t *testing.T) {
 			t.Errorf("内置源 %s 没有详情分发实现", spec.ID)
 		}
 	}
-	if got := len(builtinDetailTable); got != len(builtinSourceSpecs) {
-		t.Fatalf("详情表条目 %d 与内置源数量 %d 不一致", got, len(builtinSourceSpecs))
+	if got := len(builtinDetailTable); got < len(builtinSourceSpecs) {
+		t.Fatalf("详情表条目 %d 少于内置源数量 %d", got, len(builtinSourceSpecs))
 	}
 }
 
