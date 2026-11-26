@@ -1,6 +1,7 @@
 {
   "providers": [
     "provider_51duanju.go",
+    "provider_common.go",
     "provider_detail_metadata.go",
     "provider_discovery.go",
     "provider_dsd_catalog.go",
@@ -10,11 +11,6 @@
     "provider_huangdou.go",
     "provider_huangdou_detail.go",
     "provider_huangdou_vip.go",
-    "provider_huangguo.go",
-    "provider_huangguo_cards.go",
-    "provider_huangguo_portals.go",
-    "provider_huangguo_web.go",
-    "provider_huangguo_worker.go",
     "provider_huangju.go",
     "provider_huangju_client.go",
     "provider_huangju_rsc.go",
