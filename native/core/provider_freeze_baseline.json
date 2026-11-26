@@ -1,19 +1,13 @@
 {
   "providers": [
-    "provider_51duanju.go",
     "provider_common.go",
     "provider_detail_metadata.go",
     "provider_discovery.go",
     "provider_dsd_catalog.go",
     "provider_dsd_playback.go",
-    "provider_hanxiaoquan.go",
-    "provider_hema.go",
     "provider_huangdou.go",
     "provider_huangdou_detail.go",
     "provider_huangdou_vip.go",
-    "provider_huangju.go",
-    "provider_huangju_client.go",
-    "provider_huangju_rsc.go",
     "provider_legacy.go",
     "provider_legacy_app.go",
     "provider_legacy_cover.go",
@@ -27,11 +21,12 @@
     "provider_rankings_loader.go",
     "provider_rankings_maccms.go",
     "provider_rankings_parse.go",
+    "provider_retired_ids.go",
     "provider_sort_details.go",
     "provider_sort_metadata.go",
     "provider_web.go",
     "provider_yeguo.go",
     "provider_yeguo_client.go"
   ],
-  "builtinSpecs": 11
+  "builtinSpecs": 7
 }
