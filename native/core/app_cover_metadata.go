@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"errors"
-	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
@@ -17,19 +16,6 @@ func (d *Downloader) nativeCoverAddress(ctx context.Context, drama nativeDrama) 
 		return "", errors.New("无效的剧集 ID")
 	}
 	switch source {
-	case sourceHongguo:
-		if !hongguoNumericID.MatchString(id) {
-			return "", errors.New("无效的红果剧集 ID")
-		}
-		result, err := d.hongguoAppRequest(ctx, http.MethodPost, "/novel/player/video_detail/v1/", nil, map[string]any{"series_id": id})
-		if err != nil {
-			return "", err
-		}
-		row := nestedMap(result, "data", "video_data")
-		if mapString(row, "series_id_str", "series_id") != id {
-			return "", errors.New("红果详情与请求剧集不符")
-		}
-		return hongguoCoverAddress(mapString(row, "series_cover", "cover")), nil
 	case sourceHuangdou:
 		row, err := d.huangdouDetail(ctx, id)
 		if err != nil {
