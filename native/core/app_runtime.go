@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -677,93 +676,27 @@ func (engine *nativeEngine) nativeCatalog(ctx context.Context, input nativeInput
 		result.HasMore = more
 		return result, nil
 	}
-	if query != "" && source == sourceHongguo {
-		entry, err := d.searchHongguoDramas(ctx, query)
-		if err != nil {
-			return result, err
+	if query != "" {
+		// 搜索统一走 builtinCatalogTable：每个源在表里自己决定怎么搜。
+		// 表里没有的源落到下面的本地搜索兜底。
+		if outcome, handled, dispatchErr := runBuiltinCatalog(engine, d, ctx, source, page, category, query); handled {
+			if dispatchErr != nil {
+				return result, dispatchErr
+			}
+			if outcome.Page > 0 {
+				result.Page = outcome.Page
+			}
+			if outcome.Warning != "" {
+				result.Warning = outcome.Warning
+			}
+			result.HasMore = outcome.HasMore
+			for _, drama := range outcome.Items {
+				result.Items = append(result.Items, nativeNormalize(drama))
+			}
+			return result, nil
 		}
-		for _, drama := range entry.Dramas {
-			result.Items = append(result.Items, nativeNormalize(drama))
-		}
-		result.Warning, result.Page = entry.Warning, 1
-		if entry.Limited && result.Warning == "" {
-			result.Warning = "已显示当前可获取的匹配结果，使用更完整的剧名可继续查找"
-		}
-		return result, nil
 	}
-	if query != "" && source == sourceChengguo {
-		items, more, err := d.fetchChengguoCatalogPage(ctx, page, "", query)
-		if err != nil {
-			return result, err
-		}
-		for _, drama := range items {
-			result.Items = append(result.Items, nativeNormalize(drama))
-		}
-		result.HasMore = more
-		return result, nil
-	}
-	if query != "" && source == sourceHuangju {
-		items, more, err := d.fetchHuangjuCatalogPage(ctx, page, "", query)
-		if err != nil {
-			return result, err
-		}
-		for _, drama := range items {
-			result.Items = append(result.Items, nativeNormalize(drama))
-		}
-		result.HasMore = more
-		return result, nil
-	}
-	if query != "" && source == sourceSorani {
-		items, more, err := d.fetchSoraniCatalogPage(ctx, page, "", query)
-		if err != nil {
-			return result, err
-		}
-		for _, drama := range items {
-			result.Items = append(result.Items, nativeNormalize(drama))
-		}
-		result.HasMore = more
-		return result, nil
-	}
-	if query != "" && source == sourceGuipian {
-		items, more, err := d.fetchGuipianCatalogPage(ctx, page, "", query)
-		if err != nil {
-			return result, err
-		}
-		for _, drama := range items {
-			result.Items = append(result.Items, nativeNormalize(drama))
-		}
-		result.HasMore = more
-		return result, nil
-	}
-	if query != "" && source == sourceHanxiaoquan {
-		items, more, err := d.fetchHanxiaoquanCatalogPage(ctx, page, "", query)
-		if err != nil {
-			return result, err
-		}
-		for _, drama := range items {
-			result.Items = append(result.Items, nativeNormalize(drama))
-		}
-		result.HasMore = more
-		return result, nil
-	}
-	if query != "" && (source == sourceYeguo || source == sourceDSD) {
-		var items []Drama
-		var more bool
-		var err error
-		if source == sourceYeguo {
-			items, more, err = d.fetchYeguoCatalogPage(ctx, page, "", query)
-		} else {
-			items, more, err = d.fetchDSDCatalogPage(ctx, page, "", query)
-		}
-		if err != nil {
-			return result, err
-		}
-		for _, drama := range items {
-			result.Items = append(result.Items, nativeNormalize(drama))
-		}
-		result.HasMore = more
-		return result, nil
-	}
+
 	if query != "" {
 		engine.mu.Lock()
 		items := append([]nativeDrama{}, engine.catalogs[source]...)
@@ -791,118 +724,47 @@ func (engine *nativeEngine) nativeCatalog(ctx context.Context, input nativeInput
 	}
 	var items []Drama
 	var err error
-	switch source {
-	case sourceHongguo:
-		engine.mu.Lock()
-		known := make(map[string]bool, len(engine.catalogs[cacheKey]))
-		for _, drama := range engine.catalogs[cacheKey] {
-			known[drama.ID] = true
-		}
-		engine.mu.Unlock()
-		ctx = context.WithValue(ctx, libraryKnownKey{}, known)
-		if page > 1 {
-			ctx = context.WithValue(ctx, libraryMoreKey{}, true)
-		}
-		items, err = d.fetchHongguoAppCatalogCategory(ctx, category)
-		state := d.hongguoCatalogSnapshot()
-		result.hongguo = state
-		result.HasMore = hongguoCatalogHasMore(state)
-		if category != "" && state != nil {
-			result.HasMore = !state.Feeds["category:"+category].Exhausted
-		}
-		if len(items) == 0 && err != nil && ctx.Err() == nil && (category == "" || category == "short_play") {
-			var totalPages int
-			items, totalPages, err = d.fetchHongguoCategoryPage(ctx, "real-drama?page="+strconv.Itoa(page), "真人剧")
-			result.HasMore = page < totalPages
-		}
-	case sourceHuangdou:
-		client := newHuangdouAPIClient(d)
-		var decoded any
-		err = client.call(ctx, "/drama/list", map[string]any{"page": strconv.Itoa(page), "page_size": "30"}, &decoded)
-		if err == nil {
-			rows := huangdouList(decoded)
-			for _, row := range rows {
-				if drama := huangdouDramaFromMap(row); drama.ID != "" {
-					items = append(items, drama)
+	{
+		// 内置源的分发已从这里的 26 个 case 收敛到 builtin_catalog_dispatch.go
+		// 的一张表。此处只做「查表 → 调用 → 合并结果」，不再出现任何站点分支。
+		outcome, handled, dispatchErr := runBuiltinCatalog(engine, d, ctx, source, page, category, query)
+		if handled {
+			items = outcome.Items
+			err = dispatchErr
+			result.HasMore = outcome.HasMore
+			if outcome.Warning != "" {
+				result.Warning = outcome.Warning
+			}
+			if outcome.Page > 0 {
+				result.Page = outcome.Page
+			}
+			if outcome.LocalSearch {
+				result.LocalSearch = true
+			}
+			if outcome.Hongguo != nil {
+				result.hongguo = outcome.Hongguo
+			}
+		} else {
+			// 表外源：运行时加载的 JS 模块优先，其次运行时注入的自定义源。
+			if moduleSource(source) != nil {
+				items, result.HasMore, err = d.moduleCatalog(ctx, source, page, category, strings.TrimSpace(input.Query))
+			} else if isCustomSource(source) && d.customSources != nil {
+				cfg, ok := d.customSources.get(source)
+				if !ok {
+					return result, errors.New("自定义站源配置已失效，请重新添加")
 				}
-			}
-			result.HasMore = len(rows) >= 30
-		}
-	case sourceHuangguoAI:
-		items, result.HasMore, err = d.fetchHuangguoAICatalogPage(ctx, page, category)
-	case sourceHuangju:
-		items, result.HasMore, err = d.fetchHuangjuCatalogPage(ctx, page, category, "")
-	case sourceYeguo:
-		items, result.HasMore, err = d.fetchYeguoCatalogPage(ctx, page, category, "")
-	case sourceDSD:
-		items, result.HasMore, err = d.fetchDSDCatalogPage(ctx, page, category, "")
-	case sourceSorani:
-		items, result.HasMore, err = d.fetchSoraniCatalogPage(ctx, page, category, "")
-	case sourceGuipian:
-		items, result.HasMore, err = d.fetchGuipianCatalogPage(ctx, page, category, "")
-	case sourceHanxiaoquan:
-		items, result.HasMore, err = d.fetchHanxiaoquanCatalogPage(ctx, page, category, "")
-	// 参考 zhenguojianTV v0.8.31 新增站源。
-	case sourceDuanju51:
-		items, result.HasMore, err = d.fetchDuanju51CatalogPage(ctx, page, category, "")
-	case sourceEZDMW:
-		items, result.HasMore, err = d.fetchEZDMWCatalogPage(ctx, page, category, "")
-	case sourceHema:
-		items, result.HasMore, err = d.fetchHemaCatalogPage(ctx, page, category, "")
-	case sourceHuangguoMain:
-		if page > 1 {
-			break
-		}
-		items, err = d.fetchHuangguoWebCatalog(ctx)
-	case sourceHuangguoSelected, sourceHuangguoWelfare:
-		if page > 1 {
-			break
-		}
-		items, err = d.fetchHuangguoPortalCatalog(ctx, source)
-	case sourceHuakui:
-		if page > 1 {
-			break
-		}
-		items, err = d.fetchHuakuiCatalog(ctx, category)
-	case sourceChengguo:
-		items, result.HasMore, err = d.fetchChengguoCatalogPage(ctx, page, category, "")
-	case sourceHuaguo, sourceWangguo, sourceFaguo, sourceWuguo, sourceMxdm, sourceJcydm:
-		items, result.HasMore, err = d.fetchMaccmsCatalogPage(ctx, source, page, "")
-	case sourceHuangguoVideo:
-		address := fmt.Sprintf("%s/videos?page=%d", d.providerBaseURL(source), page)
-		if category != "" {
-			address += "&category=" + url.QueryEscape(category)
-		}
-		var body string
-		body, err = d.fetchProviderText(ctx, address, d.providerBaseURL(source)+"/")
-		if err == nil {
-			items = parseHuangguoVideoCards(body, address)
-		}
-		result.HasMore = len(items) >= 20
-	case sourceCloudFront:
-		items, result.HasMore, err = d.fetchLegacyCatalogCategoryPage(ctx, page, category)
-	default:
-		// 运行时加载的 JS 站源模块优先。
-		if moduleSource(source) != nil {
-			items, result.HasMore, err = d.moduleCatalog(ctx, source, page, category, strings.TrimSpace(input.Query))
-			break
-		}
-		// 运行时注入的自定义源：苹果CMS 走通用采集，AES 走参数化引擎。
-		if isCustomSource(source) && d.customSources != nil {
-			cfg, ok := d.customSources.get(source)
-			if !ok {
-				return result, errors.New("自定义站源配置已失效，请重新添加")
-			}
-			switch cfg.Type {
-			case "maccms":
-				items, result.HasMore, err = d.fetchMaccmsCatalogPage(ctx, source, page, "")
-			case "aes":
-				items, result.HasMore, err = d.fetchCustomAESCatalogPage(ctx, cfg, page, category, "")
-			default:
-				return result, errors.New("自定义站源类型不支持")
+				switch cfg.Type {
+				case "maccms":
+					items, result.HasMore, err = d.fetchMaccmsCatalogPage(ctx, source, page, "")
+				case "aes":
+					items, result.HasMore, err = d.fetchCustomAESCatalogPage(ctx, cfg, page, category, "")
+				default:
+					return result, errors.New("自定义站源类型不支持")
+				}
 			}
 		}
 	}
+
 	if err != nil && len(items) == 0 {
 		return result, err
 	}
