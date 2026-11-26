@@ -88,8 +88,6 @@ func TestLiveProviderCatalogRankingDetailAndPlaybackSmoke(t *testing.T) {
 
 func fetchLiveCatalogPage(ctx context.Context, d *Downloader, source string) ([]Drama, bool, error) {
 	switch source {
-	case sourceHuangju:
-		return d.fetchHuangjuCatalogPage(ctx, 1, "", "")
 	case sourceYeguo:
 		return d.fetchYeguoCatalogPage(ctx, 1, "", "")
 	case sourceDSD:
@@ -101,8 +99,6 @@ func fetchLiveCatalogPage(ctx context.Context, d *Downloader, source string) ([]
 
 func fetchLiveDetail(ctx context.Context, d *Downloader, source, sourceID string) (Drama, []Chapter, error) {
 	switch source {
-	case sourceHuangju:
-		return d.fetchHuangjuDetail(ctx, sourceID)
 	case sourceYeguo:
 		return d.fetchYeguoDetail(ctx, sourceID)
 	case sourceDSD:
