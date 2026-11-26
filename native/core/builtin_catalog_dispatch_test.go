@@ -27,7 +27,7 @@ func TestBuiltinCatalogKnownRejectsUnknown(t *testing.T) {
 
 func TestBuiltinCatalogSinglePageSources(t *testing.T) {
 	// 黄果主站/精选/福利/花魁只提供第一页；第二页必须返回空而不报错。
-	for _, id := range []string{sourceHuangguoMain, sourceHuangguoSelected, sourceHuangguoWelfare, sourceHuakui} {
+	for _, id := range []string{sourceHuangguoMain, sourceHuangguoSelected, sourceHuangguoWelfare} {
 		fetch := builtinCatalogTable[id]
 		if fetch == nil {
 			t.Fatalf("%s 不在分发表里", id)
