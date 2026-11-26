@@ -47,69 +47,12 @@ func maccmsDetail(source string) builtinDetailFunc {
 }
 
 // builtinDetailTable 是内置源详情抓取的唯一分发表，与 builtinCatalogTable 一一对应。
-var builtinDetailTable = map[string]builtinDetailFunc{
+var builtinDetailTable = map[string]builtinDetailFunc{}
 
-	sourceHuangdou: func(engine *nativeEngine, d *Downloader, ctx context.Context, source, sourceID string) (builtinDetailOutcome, error) {
-		title, chapters, err := d.GetHuangguoChapters(ctx, source, sourceID)
-		out := builtinDetailOutcome{Title: title, Chapters: chapters}
-		out.Enrich = func(d *Downloader, ctx context.Context, drama *nativeDrama) {
-			row, rowErr := d.huangdouDetail(ctx, sourceID)
-			if rowErr != nil {
-				return
-			}
-			fresh := nativeNormalize(huangdouDramaFromMap(row))
-			if fresh.ID == drama.ID {
-				*drama = mergeNativeDrama(*drama, fresh)
-			}
-		}
-		return out, err
-	},
-
-	sourceHuangguoAI: simpleDetail(func(d *Downloader, ctx context.Context, sourceID string) (Drama, []Chapter, error) {
-		return d.fetchHuangguoAIDetail(ctx, sourceID)
-	}),
-	sourceHuangguoVideo: simpleDetail(func(d *Downloader, ctx context.Context, sourceID string) (Drama, []Chapter, error) {
-		return d.fetchHuangguoVideoDetail(ctx, sourceID)
-	}),
-	sourceCloudFront: simpleDetail(func(d *Downloader, ctx context.Context, sourceID string) (Drama, []Chapter, error) {
-		return d.fetchLegacyDetail(ctx, sourceID)
-	}),
-	sourceYeguo: simpleDetail(func(d *Downloader, ctx context.Context, sourceID string) (Drama, []Chapter, error) {
-		return d.fetchYeguoDetail(ctx, sourceID)
-	}),
-	sourceDSD: simpleDetail(func(d *Downloader, ctx context.Context, sourceID string) (Drama, []Chapter, error) {
-		return d.fetchDSDDetail(ctx, sourceID)
-	}),
-	sourceHuangguoMain: simpleDetail(func(d *Downloader, ctx context.Context, sourceID string) (Drama, []Chapter, error) {
-		return d.fetchHuangguoWebDetail(ctx, sourceID)
-	}),
-	sourceHuangguoSelected: sourceDetail(func(d *Downloader, ctx context.Context, source, sourceID string) (Drama, []Chapter, error) {
-		return d.fetchHuangguoPortalDetail(ctx, source, sourceID)
-	}),
-	sourceHuangguoWelfare: sourceDetail(func(d *Downloader, ctx context.Context, source, sourceID string) (Drama, []Chapter, error) {
-		return d.fetchHuangguoPortalDetail(ctx, source, sourceID)
-	}),
-	// 黄果官网在旧实现里没有独立 case，走的是 default 分支的 GetHuangguoChapters。
-	sourceHuangguoOfficial: func(engine *nativeEngine, d *Downloader, ctx context.Context, source, sourceID string) (builtinDetailOutcome, error) {
-		title, chapters, err := d.GetHuangguoChapters(ctx, source, sourceID)
-		return builtinDetailOutcome{Title: title, Chapters: chapters}, err
-	},
-}
 
 // 有些源的列表页集数少于详情页，收尾时取两者的较大值。
-var detailEpisodesFromRaw = map[string]bool{
-	sourceYeguo:    true,
-}
-
-func init() {
-	for source := range detailEpisodesFromRaw {
-		entry, ok := builtinDetailTable[source]
-		if !ok {
-			panic("builtinDetailTable 缺少源 " + source)
-		}
-		builtinDetailTable[source] = withEpisodesFromRaw(entry)
-	}
-}
+// 主程序不内置任何源，这张表默认是空的；内置实现删除后不再有登记项。
+var detailEpisodesFromRaw = map[string]bool{}
 
 func withEpisodesFromRaw(inner builtinDetailFunc) builtinDetailFunc {
 	return func(engine *nativeEngine, d *Downloader, ctx context.Context, source, sourceID string) (builtinDetailOutcome, error) {
