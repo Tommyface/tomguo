@@ -263,8 +263,6 @@ func (d *Downloader) GetHuangguoChapters(ctx context.Context, source, sourceID s
 		return d.fetchHuangguoVideoChapters(ctx, sourceID)
 	case sourceHuangdou:
 		return d.fetchHuangdouChapters(ctx, sourceID)
-	case sourceHongguo:
-		return d.fetchHongguoChapters(ctx, sourceID)
 	case sourceHuangju:
 		drama, chapters, err := d.fetchHuangjuDetail(ctx, sourceID)
 		return drama.DisplayTitle(), chapters, err
