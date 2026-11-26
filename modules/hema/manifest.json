@@ -1,0 +1,17 @@
+{
+  "id": "hema",
+  "name": "河马剧场",
+  "version": "1.0.0",
+  "description": "河马剧场：迁移自内置实现。",
+  "runtime": "js",
+  "api": 1,
+  "adult": false,
+  "hosts": [
+    "www.kuaikaw.cn"
+  ],
+  "capabilities": [
+    "cover"
+  ],
+  "allowEmptyCatalog": true,
+  "mainSha256": "8acaac6f47f2d6382f2010f8ec52b866aa9a05957f1e5bedacbb37f7b28d7895"
+}
