@@ -40,12 +40,6 @@ func validNativeCategory(source, category string) bool {
 		return false
 	}
 	switch source {
-	case sourceHongguo:
-		for _, genre := range hongguoAppGenres {
-			if category == genre.key {
-				return true
-			}
-		}
 	case sourceHuangguoAI:
 		for _, entry := range nativeAICategories {
 			if category == entry.ID {
@@ -82,11 +76,6 @@ func (engine *nativeEngine) nativeCategories(ctx context.Context, source string,
 	source = canonicalProviderSource(source)
 	all := []nativeCategory{{Name: "全部"}}
 	switch source {
-	case sourceHongguo:
-		for _, genre := range hongguoAppGenres {
-			all = append(all, nativeCategory{ID: genre.key, Name: genre.name})
-		}
-		return all, nil
 	case sourceHuangguoAI:
 		return append(all, nativeAICategories...), nil
 	case sourceHuangdou:
