@@ -21,21 +21,7 @@ type sourceSpec struct {
 }
 
 // builtinSourceSpecs 是内置源清单。顺序不重要，查询走 map。
-var builtinSourceSpecs = []sourceSpec{
-	{ID: sourceHuangguoAI, Name: "黄果", Adults: true, Capabilities: capsAll,
-		Aliases: []string{"huangguo", "huangguoai.com"}},
-	{ID: sourceHuangguoVideo, Name: "黄果视频", Adults: true, Capabilities: capsAll,
-		Aliases: []string{"huangguo.video"}},
-	{ID: sourceHuangdou, Name: "黄豆", Adults: true, Capabilities: capsAll,
-		Aliases: []string{"tideember.cc", "xqjurgek.top", "iwgsqufx.cc", "roufquunbu.cc", "ahievheved.cc", "momodrift.top", "eyeonneb.cc", "lzlukvca.cc", "glowcanvas.cc", "zuzuspot.top", "zuzucast.top"}},
-	{ID: sourceYeguo, Name: "野果", Capabilities: capsAll,
-		Aliases: []string{"ygdj7.com", "www.ygdj7.com", "analyze.buxefaex.cc", "delta.ygrwdsgt.cc", "yeguodj.com", "www.yeguodj.com"}},
-	{ID: sourceDSD, Name: "DSD", Capabilities: capsAll,
-		Aliases: []string{"dsd.com.se", "www.dsd.com.se"}},
-	{ID: sourceCloudFront, Name: "CloudFront", Capabilities: capsAll},
-	{ID: sourceHuangguoMain, Name: "黄果主站", Adults: true, Capabilities: capsAll,
-		Aliases: []string{"黄果主站", "falpius.com", "whmxun.com"}},
-}
+var builtinSourceSpecs = []sourceSpec{}
 
 var capsAll = []string{"catalog", "detail", "stream", "search"}
 
