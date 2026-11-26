@@ -74,23 +74,11 @@ var builtinDetailTable = map[string]builtinDetailFunc{
 	sourceCloudFront: simpleDetail(func(d *Downloader, ctx context.Context, sourceID string) (Drama, []Chapter, error) {
 		return d.fetchLegacyDetail(ctx, sourceID)
 	}),
-	sourceHuangju: simpleDetail(func(d *Downloader, ctx context.Context, sourceID string) (Drama, []Chapter, error) {
-		return d.fetchHuangjuDetail(ctx, sourceID)
-	}),
 	sourceYeguo: simpleDetail(func(d *Downloader, ctx context.Context, sourceID string) (Drama, []Chapter, error) {
 		return d.fetchYeguoDetail(ctx, sourceID)
 	}),
 	sourceDSD: simpleDetail(func(d *Downloader, ctx context.Context, sourceID string) (Drama, []Chapter, error) {
 		return d.fetchDSDDetail(ctx, sourceID)
-	}),
-	sourceHanxiaoquan: simpleDetail(func(d *Downloader, ctx context.Context, sourceID string) (Drama, []Chapter, error) {
-		return d.fetchHanxiaoquanDetail(ctx, sourceID)
-	}),
-	sourceDuanju51: simpleDetail(func(d *Downloader, ctx context.Context, sourceID string) (Drama, []Chapter, error) {
-		return d.fetchDuanju51Detail(ctx, sourceID)
-	}),
-	sourceHema: simpleDetail(func(d *Downloader, ctx context.Context, sourceID string) (Drama, []Chapter, error) {
-		return d.fetchHemaDetail(ctx, sourceID)
 	}),
 	sourceHuangguoMain: simpleDetail(func(d *Downloader, ctx context.Context, sourceID string) (Drama, []Chapter, error) {
 		return d.fetchHuangguoWebDetail(ctx, sourceID)
@@ -110,7 +98,6 @@ var builtinDetailTable = map[string]builtinDetailFunc{
 
 // 有些源的列表页集数少于详情页，收尾时取两者的较大值。
 var detailEpisodesFromRaw = map[string]bool{
-	sourceHuangju:  true,
 	sourceYeguo:    true,
 }
 
