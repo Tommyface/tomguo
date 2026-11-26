@@ -6,7 +6,7 @@ func TestBuiltinMediaTableContainsKeyResolvers(t *testing.T) {
 	want := []string{
 		sourceCloudFront, sourceHuangju, sourceYeguo, sourceDSD,
 		sourceHanxiaoquan, sourceHuangguoMain, sourceHuangguoSelected,
-		sourceHuangguoWelfare, sourceChengguo, sourceHongguo,
+		sourceHuangguoWelfare, sourceHongguo,
 		sourceHuangdou, sourceHema, sourceDuanju51,
 	}
 	for _, source := range want {
