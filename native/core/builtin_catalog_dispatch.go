@@ -42,42 +42,6 @@ func simpleCatalog(fetch catalogFetchFunc) builtinCatalogFunc {
 // 这张表取代了 nativeCatalog 里的两个 26 分支 switch：
 // 一个用于搜索（query 非空），一个用于分类浏览。两者签名相同，所以只需要一张表。
 var builtinCatalogTable = map[string]builtinCatalogFunc{
-	sourceHongguo: func(engine *nativeEngine, d *Downloader, ctx context.Context, page int, category, query string) (builtinCatalogOutcome, error) {
-		if query != "" {
-			entry, err := d.searchHongguoDramas(ctx, query)
-			if err != nil {
-				return builtinCatalogOutcome{}, err
-			}
-			out := builtinCatalogOutcome{Items: entry.Dramas, Warning: entry.Warning, Page: 1}
-			if entry.Limited && out.Warning == "" {
-				out.Warning = "已显示当前可获取的匹配结果，使用更完整的剧名可继续查找"
-			}
-			return out, nil
-		}
-		engine.mu.Lock()
-		known := make(map[string]bool, len(engine.catalogs[category]))
-		for _, drama := range engine.catalogs[category] {
-			known[drama.ID] = true
-		}
-		engine.mu.Unlock()
-		ctx = context.WithValue(ctx, libraryKnownKey{}, known)
-		if page > 1 {
-			ctx = context.WithValue(ctx, libraryMoreKey{}, true)
-		}
-		items, err := d.fetchHongguoAppCatalogCategory(ctx, category)
-		state := d.hongguoCatalogSnapshot()
-		out := builtinCatalogOutcome{Items: items, Hongguo: state, HasMore: hongguoCatalogHasMore(state)}
-		if category != "" && state != nil {
-			out.HasMore = !state.Feeds["category:"+category].Exhausted
-		}
-		if len(items) == 0 && err != nil && ctx.Err() == nil && (category == "" || category == "short_play") {
-			var totalPages int
-			items, totalPages, err = d.fetchHongguoCategoryPage(ctx, "real-drama?page="+strconv.Itoa(page), "真人剧")
-			out.Items = items
-			out.HasMore = page < totalPages
-		}
-		return out, err
-	},
 
 	sourceHuangdou: func(engine *nativeEngine, d *Downloader, ctx context.Context, page int, category, query string) (builtinCatalogOutcome, error) {
 		client := newHuangdouAPIClient(d)
