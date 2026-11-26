@@ -1,0 +1,22 @@
+{
+  "id": "jcydm",
+  "name": "囧次元",
+  "version": "1.0.0",
+  "description": "囧次元动漫：标准 MacCMS v10 站点，日漫 id=21 / 国漫 id=23。列表与搜索走网页采集，播放地址取自播放页内嵌 JSON。",
+  "runtime": "js",
+  "api": 1,
+  "adult": false,
+  "hosts": [
+    "www.jcydm1.com"
+  ],
+  "capabilities": [
+    "cover"
+  ],
+  "allowEmptyCatalog": true,
+  "mainSha256": "0279f40faf1756f333aec02bca786d245352a300891bfd617b1b879b2ee7848a",
+  "coverHosts": [
+    "img.dytt-tupian.com",
+    "vip.dytt-img.com",
+    "www.jcydm1.com"
+  ]
+}
