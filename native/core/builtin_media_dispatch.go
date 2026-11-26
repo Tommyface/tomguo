@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"strconv"
 	"strings"
 )
 
@@ -18,52 +17,8 @@ type builtinMediaFunc func(d *Downloader, ctx context.Context, chapter *Chapter,
 
 // builtinMediaTable 是内置源播放解析的唯一分发表。
 // 表里没有的源走直连兜底；运行时模块与自定义源仍由主流程先拦截。
-var builtinMediaTable = map[string]builtinMediaFunc{
-	sourceCloudFront: func(d *Downloader, ctx context.Context, chapter *Chapter, task Task, media *providerMedia) (bool, bool, error) {
-		result, err := d.resolveLegacyMedia(ctx, task)
-		*media = result
-		return true, false, err
-	},
-	sourceYeguo: func(d *Downloader, ctx context.Context, chapter *Chapter, task Task, media *providerMedia) (bool, bool, error) {
-		result, err := d.resolveYeguoMedia(ctx, task)
-		*media = result
-		return true, false, err
-	},
-	sourceDSD: func(d *Downloader, ctx context.Context, chapter *Chapter, task Task, media *providerMedia) (bool, bool, error) {
-		result, err := d.resolveDSDMedia(ctx, task)
-		*media = result
-		return true, false, err
-	},
-	sourceHuangguoMain: func(d *Downloader, ctx context.Context, chapter *Chapter, task Task, media *providerMedia) (bool, bool, error) {
-		result, err := d.resolveHuangguoWebMedia(ctx, task)
-		*media = result
-		if err == nil {
-			return true, true, nil
-		}
-		return true, false, err
-	},
-	sourceHuangguoSelected: huangguoPortalMedia(sourceHuangguoSelected),
-	sourceHuangguoWelfare:  huangguoPortalMedia(sourceHuangguoWelfare),
-	// 黄豆：详情只存集数，播放时按集号再问一次接口。
-	sourceHuangdou: func(d *Downloader, ctx context.Context, chapter *Chapter, task Task, media *providerMedia) (bool, bool, error) {
-		_, sourceID, valid := splitProviderDramaID(task.DramaID)
-		if !valid {
-			return true, false, nil
-		}
-		sequence, err := strconv.Atoi(chapter.EpisodeString(task.Index))
-		if err != nil || sequence < 1 {
-			return true, false, errHuangdouInvalidEpisode
-		}
-		client := newHuangdouAPIClient(d)
-		result, err := d.resolveHuangdouPlayback(ctx, client, sourceID, sequence)
-		if err != nil {
-			return true, false, err
-		}
-		result.Referer = client.host + "/home"
-		*media = result
-		return true, false, nil
-	},
-}
+var builtinMediaTable = map[string]builtinMediaFunc{}
+
 
 var errHuangdouInvalidEpisode = &providerGateError{message: "黄豆集数无效"}
 
