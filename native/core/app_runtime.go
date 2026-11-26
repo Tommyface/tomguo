@@ -133,8 +133,14 @@ type nativeInput struct {
 	AggregateKey     string                  `json:"aggregateKey"`
 	GroupID          string                  `json:"groupId"`
 	Refine           bool                    `json:"refine"`
-	SourcesTagged    bool                    `json:"sourcesTagged"`
-	CachedOnly       bool                    `json:"cachedOnly"`
+	// Mode 决定聚合的取数策略：
+	//   instant  只读内存/磁盘缓存，绝不联网（首屏用）
+	//   refresh  缓存优先，缺失或过期时才联网
+	//   force    强制联网（用户明确要求）
+	// 空值等价于 refresh，保持旧调用的行为。
+	Mode          string `json:"mode"`
+	SourcesTagged bool   `json:"sourcesTagged"`
+	CachedOnly    bool   `json:"cachedOnly"`
 }
 
 type nativeCatalogResult struct {
