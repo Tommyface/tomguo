@@ -1,0 +1,21 @@
+{
+  "id": "ezdmw",
+  "name": "E站动漫",
+  "version": "1.0.0",
+  "description": "E站动漫：首页编排最近更新+新番+排行榜，后续页走 search_some 偏移分页。播放地址藏在播放页 iframe，需再请求播放器页取 listres 直链。",
+  "runtime": "js",
+  "api": 1,
+  "adult": false,
+  "hosts": [
+    "www.ezdmw.org",
+    "player.ezdmw.com"
+  ],
+  "capabilities": [
+    "cover"
+  ],
+  "allowEmptyCatalog": true,
+  "mainSha256": "c35489f5abe0f89bdd3a048269baa9910f0f9fe4653b2cdba66c19bf442a54c2",
+  "coverHosts": [
+    "www.ezdmw.org"
+  ]
+}
