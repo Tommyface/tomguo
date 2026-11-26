@@ -243,7 +243,25 @@ func aggregateByTitleTagged(perSource map[string][]nativeDrama, adultView, sourc
 	return out
 }
 
+// aggregateMode 归一化聚合取数策略。
+func aggregateMode(mode string) string {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "instant":
+		return "instant"
+	case "force":
+		return "force"
+	default:
+		return "refresh"
+	}
+}
+
 func (engine *nativeEngine) nativeAggregateCatalog(ctx context.Context, input nativeInput) (result nativeAggregateResult, err error) {
+	// instant：只读缓存，绝不联网。首屏用它拿到零延迟的第一帧。
+	if aggregateMode(input.Mode) == "instant" {
+		cached := engine.nativeAggregateCached(input)
+		cached.Cached = true
+		return cached, nil
+	}
 	// 完整聚合结果短期复用：切类型/切视图来回翻时不再每轮重新联网。
 	// refine 是后台补拉，必须绕过缓存；分页只缓存当前页。
 	if !input.Refine && strings.TrimSpace(input.Query) == "" {
