@@ -164,8 +164,6 @@ func CatalogSnapshotSources() []string {
 		sourceCloudFront,
 		sourceDuanju51,
 		sourceYeguo,
-		sourceEZDMW,
-		sourceSorani,
 		sourceHema,
 		sourceHuaguo,
 		sourceWangguo,
