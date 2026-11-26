@@ -26,17 +26,11 @@ func (d *Downloader) nativeCoverAddress(ctx context.Context, drama nativeDrama) 
 			return "", errors.New("黄豆详情与请求剧集不符")
 		}
 		return fresh.Cover, nil
-	case sourceHuangju:
-		fresh, _, err := d.fetchHuangjuDetail(ctx, id)
-		return nativeNormalize(fresh).Cover, err
 	case sourceYeguo:
 		fresh, _, err := d.fetchYeguoDetail(ctx, id)
 		return nativeNormalize(fresh).Cover, err
 	case sourceDSD:
 		fresh, _, err := d.fetchDSDDetail(ctx, id)
-		return nativeNormalize(fresh).Cover, err
-	case sourceHanxiaoquan:
-		fresh, _, err := d.fetchHanxiaoquanDetail(ctx, id)
 		return nativeNormalize(fresh).Cover, err
 	case sourceCloudFront:
 		if !rankingSourceID.MatchString(id) {
