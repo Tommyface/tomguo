@@ -119,8 +119,6 @@ var builtinDetailTable = map[string]builtinDetailFunc{
 	sourceWangguo: maccmsDetail(sourceWangguo),
 	sourceFaguo:   maccmsDetail(sourceFaguo),
 	sourceWuguo:   maccmsDetail(sourceWuguo),
-	sourceMxdm:    maccmsDetail(sourceMxdm),
-	sourceJcydm:   maccmsDetail(sourceJcydm),
 }
 
 // 有些源的列表页集数少于详情页，收尾时取两者的较大值。
