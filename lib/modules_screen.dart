@@ -128,9 +128,14 @@ class _ModulesScreenState extends State<ModulesScreen> {
                   ListTile(
                     title: Text(entry.name),
                     subtitle: Text(
-                      '${entry.id} · ${entry.version}${entry.adult ? ' · 成人' : ''}',
+                      '${entry.id} · ${entry.version}'
+                      '${entry.adult ? ' · 成人' : ''}'
+                      '${entry.stateLabel.isEmpty ? '' : ' · ${entry.stateLabel}'}',
                     ),
-                    onTap: () => Navigator.pop(context, entry.id),
+                    enabled: entry.canInstall,
+                    onTap: entry.canInstall
+                        ? () => Navigator.pop(context, entry.id)
+                        : null,
                   ),
               ],
             ),
