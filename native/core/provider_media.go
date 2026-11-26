@@ -54,8 +54,6 @@ func (d *Downloader) providerBaseURL(source string) string {
 		fallback = hemaSiteBaseURL
 	case sourceChengguo:
 		configured, fallback = d.cfg.ChengguoURL, chengguoBaseURL
-	case sourceHuakui:
-		fallback = huakuiSiteBaseURL
 	case sourceHuangguoMain:
 		fallback = "https://falpius.com"
 	case sourceHuangguoSelected, sourceHuangguoWelfare:
@@ -186,9 +184,6 @@ func (d *Downloader) resolveProviderMedia(ctx context.Context, task Task) (provi
 	}
 	if chapter.Source == sourceHuangguoSelected || chapter.Source == sourceHuangguoWelfare {
 		return d.resolveHuangguoPortalMedia(ctx, task)
-	}
-	if chapter.Source == sourceHuakui {
-		return d.resolveHuakuiMedia(ctx, task)
 	}
 	if chapter.Source == sourceChengguo {
 		return d.resolveChengguoMedia(ctx, task)
