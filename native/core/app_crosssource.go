@@ -70,12 +70,6 @@ func moduleCrossSourceOrder() []string {
 // crossSourceSearch 用各站源自己的搜索入口。返回空表示该源搜不到。
 func (d *Downloader) crossSourceSearch(ctx context.Context, source, query string) ([]Drama, error) {
 	switch source {
-	case sourceHuangju:
-		items, _, err := d.fetchHuangjuCatalogPage(ctx, 1, "", query)
-		return items, err
-	case sourceHanxiaoquan:
-		items, _, err := d.fetchHanxiaoquanCatalogPage(ctx, 1, "", query)
-		return items, err
 	case sourceDuanju51:
 		items, _, err := d.fetchDuanju51CatalogPage(ctx, 1, "", query)
 		return items, err
