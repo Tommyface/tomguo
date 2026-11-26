@@ -2,9 +2,6 @@ package core
 
 import (
 	"context"
-	"fmt"
-	"net/url"
-	"strconv"
 	"strings"
 )
 
@@ -41,77 +38,8 @@ func simpleCatalog(fetch catalogFetchFunc) builtinCatalogFunc {
 //
 // 这张表取代了 nativeCatalog 里的两个 26 分支 switch：
 // 一个用于搜索（query 非空），一个用于分类浏览。两者签名相同，所以只需要一张表。
-var builtinCatalogTable = map[string]builtinCatalogFunc{
+var builtinCatalogTable = map[string]builtinCatalogFunc{}
 
-	sourceHuangdou: func(engine *nativeEngine, d *Downloader, ctx context.Context, page int, category, query string) (builtinCatalogOutcome, error) {
-		client := newHuangdouAPIClient(d)
-		var decoded any
-		err := client.call(ctx, "/drama/list", map[string]any{"page": strconv.Itoa(page), "page_size": "30"}, &decoded)
-		if err != nil {
-			return builtinCatalogOutcome{}, err
-		}
-		rows := huangdouList(decoded)
-		out := builtinCatalogOutcome{HasMore: len(rows) >= 30}
-		for _, row := range rows {
-			if drama := huangdouDramaFromMap(row); drama.ID != "" {
-				out.Items = append(out.Items, drama)
-			}
-		}
-		return out, nil
-	},
-
-	sourceHuangguoAI: simpleCatalog(func(d *Downloader, ctx context.Context, page int, category, query string) ([]Drama, bool, error) {
-		return d.fetchHuangguoAICatalogPage(ctx, page, category)
-	}),
-
-
-	sourceYeguo: simpleCatalog(func(d *Downloader, ctx context.Context, page int, category, query string) ([]Drama, bool, error) {
-		return d.fetchYeguoCatalogPage(ctx, page, category, query)
-	}),
-
-	sourceDSD: simpleCatalog(func(d *Downloader, ctx context.Context, page int, category, query string) ([]Drama, bool, error) {
-		return d.fetchDSDCatalogPage(ctx, page, category, query)
-	}),
-
-
-
-
-	// 黄果主站只有一页：翻页请求直接返回空，由 AllowEmptyCatalog 决定是否报错。
-	sourceHuangguoMain: func(engine *nativeEngine, d *Downloader, ctx context.Context, page int, category, query string) (builtinCatalogOutcome, error) {
-		if page > 1 || query != "" {
-			return builtinCatalogOutcome{}, nil
-		}
-		items, err := d.fetchHuangguoWebCatalog(ctx)
-		return builtinCatalogOutcome{Items: items}, err
-	},
-
-	sourceHuangguoSelected: portalCatalogLoader(sourceHuangguoSelected),
-	sourceHuangguoWelfare:  portalCatalogLoader(sourceHuangguoWelfare),
-
-	sourceHuangguoVideo: func(engine *nativeEngine, d *Downloader, ctx context.Context, page int, category, query string) (builtinCatalogOutcome, error) {
-		address := fmt.Sprintf("%s/videos?page=%d", d.providerBaseURL(sourceHuangguoVideo), page)
-		if category != "" {
-			address += "&category=" + url.QueryEscape(category)
-		}
-		body, err := d.fetchProviderText(ctx, address, d.providerBaseURL(sourceHuangguoVideo)+"/")
-		if err != nil {
-			return builtinCatalogOutcome{}, err
-		}
-		items := parseHuangguoVideoCards(body, address)
-		return builtinCatalogOutcome{Items: items, HasMore: len(items) >= 20}, nil
-	},
-
-	sourceCloudFront: func(engine *nativeEngine, d *Downloader, ctx context.Context, page int, category, query string) (builtinCatalogOutcome, error) {
-		items, more, err := d.fetchLegacyCatalogCategoryPage(ctx, page, category)
-		return builtinCatalogOutcome{Items: items, HasMore: more}, err
-	},
-
-	// 黄果官网：当前内置实现只提供详情与播放，目录无独立入口。
-	// 在 S2 之后这张表会被云端清单取代；此处显式占位，保证每张表条目数一致。
-	sourceHuangguoOfficial: func(engine *nativeEngine, d *Downloader, ctx context.Context, page int, category, query string) (builtinCatalogOutcome, error) {
-		return builtinCatalogOutcome{Items: nil, HasMore: false}, nil
-	},
-}
 
 func portalCatalogLoader(source string) builtinCatalogFunc {
 	return func(engine *nativeEngine, d *Downloader, ctx context.Context, page int, category, query string) (builtinCatalogOutcome, error) {
