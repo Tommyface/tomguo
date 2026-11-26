@@ -140,14 +140,6 @@ var builtinCatalogTable = map[string]builtinCatalogFunc{
 	sourceHuangguoSelected: portalCatalogLoader(sourceHuangguoSelected),
 	sourceHuangguoWelfare:  portalCatalogLoader(sourceHuangguoWelfare),
 
-	sourceHuakui: func(engine *nativeEngine, d *Downloader, ctx context.Context, page int, category, query string) (builtinCatalogOutcome, error) {
-		if page > 1 || query != "" {
-			return builtinCatalogOutcome{}, nil
-		}
-		items, err := d.fetchHuakuiCatalog(ctx, category)
-		return builtinCatalogOutcome{Items: items}, err
-	},
-
 	sourceHuaguo:  malformedMaccms(sourceHuaguo),
 	sourceWangguo: malformedMaccms(sourceWangguo),
 	sourceFaguo:   malformedMaccms(sourceFaguo),
