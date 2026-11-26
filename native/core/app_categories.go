@@ -63,10 +63,6 @@ func validNativeCategory(source, category string) bool {
 		return validYeguoCategory(category)
 	case sourceDSD:
 		return webProviderNumericID.MatchString(category)
-	case sourceSorani:
-		return validSoraniCategory(category)
-	case sourceGuipian:
-		return validGuipianCategory(category)
 	case sourceHanxiaoquan:
 		return validHanxiaoquanCategory(category)
 	// 参考 zhenguojianTV v0.8.31 新增站源。
@@ -80,7 +76,7 @@ func validNativeCategory(source, category string) bool {
 		return category == "" || validHuakuiID(category)
 	case sourceHuangguoMain, sourceHuangguoSelected, sourceHuangguoWelfare:
 		return category == ""
-	case sourceEZDMW, sourceHuaguo, sourceWangguo, sourceFaguo, sourceWuguo, sourceMxdm, sourceJcydm:
+	case sourceHuaguo, sourceWangguo, sourceFaguo, sourceWuguo, sourceMxdm, sourceJcydm:
 		return true
 	}
 	return false
@@ -102,7 +98,7 @@ func (engine *nativeEngine) nativeCategories(ctx context.Context, source string,
 	// 参考 zhenguojianTV v0.8.31 新增站源：51短剧用固定分类表。
 	case sourceDuanju51:
 		return append(all, duanju51Categories...), nil
-	case sourceEZDMW, sourceHuaguo, sourceWangguo, sourceFaguo, sourceWuguo, sourceMxdm, sourceJcydm:
+	case sourceHuaguo, sourceWangguo, sourceFaguo, sourceWuguo, sourceMxdm, sourceJcydm:
 		return all, nil
 	}
 	engine.mu.Lock()
@@ -147,10 +143,6 @@ func (engine *nativeEngine) nativeCategories(ctx context.Context, source string,
 		if err == nil {
 			all = append(all, categories...)
 		}
-	case sourceSorani:
-		all = append(all, d.fetchSoraniCategories()...)
-	case sourceGuipian:
-		all = append(all, d.fetchGuipianCategories()...)
 	case sourceHanxiaoquan:
 		all = append(all, d.fetchHanxiaoquanCategories()...)
 	case sourceHuakui:
