@@ -54,11 +54,6 @@ var builtinMediaTable = map[string]builtinMediaFunc{
 	},
 	sourceHuangguoSelected: huangguoPortalMedia(sourceHuangguoSelected),
 	sourceHuangguoWelfare:  huangguoPortalMedia(sourceHuangguoWelfare),
-	sourceHuakui: func(d *Downloader, ctx context.Context, chapter *Chapter, task Task, media *providerMedia) (bool, bool, error) {
-		result, err := d.resolveHuakuiMedia(ctx, task)
-		*media = result
-		return true, false, err
-	},
 	sourceChengguo: func(d *Downloader, ctx context.Context, chapter *Chapter, task Task, media *providerMedia) (bool, bool, error) {
 		result, err := d.resolveChengguoMedia(ctx, task)
 		*media = result
