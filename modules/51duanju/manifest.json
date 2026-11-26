@@ -1,0 +1,17 @@
+{
+  "id": "51duanju",
+  "name": "51短剧",
+  "version": "1.0.0",
+  "description": "51短剧：迁移自内置实现。",
+  "runtime": "js",
+  "api": 1,
+  "adult": false,
+  "hosts": [
+    "www.51duanju.com"
+  ],
+  "capabilities": [
+    "cover"
+  ],
+  "allowEmptyCatalog": true,
+  "mainSha256": "ed5a27698ee6bc7472764e19c10739e396d6085659fe3a03202b91605b7a6b1d"
+}
