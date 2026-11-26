@@ -41,10 +41,6 @@ func (d *Downloader) providerBaseURL(source string) string {
 		configured, fallback = d.cfg.YeguoURL, yeguoBaseURL
 	case sourceDSD:
 		configured, fallback = d.cfg.DSDURL, dsdBaseURL
-	case sourceDuanju51:
-		fallback = duanju51BaseURL
-	case sourceHema:
-		fallback = hemaSiteBaseURL
 	case sourceHuangguoMain:
 		fallback = "https://falpius.com"
 	case sourceHuangguoSelected, sourceHuangguoWelfare:
@@ -178,13 +174,6 @@ func (d *Downloader) resolveProviderMedia(ctx context.Context, task Task) (provi
 	media := providerMedia{URL: chapter.VideoURL, Referer: firstNonEmpty(chapter.Referer, d.providerBaseURL(chapter.Source)+"/")}
 	// 以下为参考 zhenguojianTV v0.8.31 新增站源的按需播放解析：
 	// 这些源详情里只存占位地址，播放时需再抓一次页面换新地址。
-	if chapter.Source == sourceHema && strings.HasPrefix(chapter.VideoURL, "hema-play://") {
-		var err error
-		media, err = d.resolveHemaMedia(ctx, task)
-		if err != nil {
-			return providerMedia{}, err
-		}
-	}
 	if strings.HasPrefix(chapter.VideoURL, "maccms-play://") {
 		if _, found := d.maccmsProfileForDynamic(chapter.Source); found {
 			var err error
@@ -197,17 +186,6 @@ func (d *Downloader) resolveProviderMedia(ctx context.Context, task Task) (provi
 	if strings.HasPrefix(chapter.VideoURL, customAESPlayScheme) {
 		var err error
 		media, err = d.resolveCustomAESPlayback(ctx, task)
-		if err != nil {
-			return providerMedia{}, err
-		}
-	}
-	// 51短剧（参考 zhenguojianTV v0.8.31）：改版后每集 m3u8 带时效 auth_key，
-	// 详情只存占位地址，播放时按集抓页面换新地址；过期的裸 m3u8 同样按需解析。
-	if chapter.Source == sourceDuanju51 &&
-		(strings.HasPrefix(chapter.VideoURL, duanju51PlayScheme) ||
-			(isProviderHTTPMediaURL(chapter.VideoURL) && strings.Contains(chapter.VideoURL, "auth_key="))) {
-		var err error
-		media, err = d.resolveDuanju51Playback(ctx, task)
 		if err != nil {
 			return providerMedia{}, err
 		}
