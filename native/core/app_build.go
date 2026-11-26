@@ -8,7 +8,13 @@ import (
 var errNativeBuildSource = errors.New("当前版本不包含此站源")
 
 func nativeSourceAvailable(source string) bool {
-	return isHuangguoProviderSource(canonicalProviderSource(source))
+	normalized := canonicalProviderSource(source)
+	// S7：已安装的 JS 模块接管同名内置源时，即使对应的 Go provider 已删除，
+	// 该源仍然是可访问的；授权白名单必须放行，否则模块路径会在入口被拦掉。
+	if moduleTakesOver(normalized) {
+		return true
+	}
+	return isHuangguoProviderSource(normalized)
 }
 
 func nativeDramaAvailable(drama nativeDrama) bool {
