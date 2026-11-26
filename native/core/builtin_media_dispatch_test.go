@@ -3,12 +3,11 @@ package core
 import "testing"
 
 func TestBuiltinMediaTableContainsKeyResolvers(t *testing.T) {
-	want := []string{
-		sourceCloudFront,
-	}
+	// 主程序不内置站源：播放分发表应为空，任何内置源 id 都不应命中。
+	want := []string{sourceCloudFront}
 	for _, source := range want {
-		if !builtinMediaKnown(source) {
-			t.Errorf("源 %s 缺少播放解析实现", source)
+		if builtinMediaKnown(source) {
+			t.Errorf("源 %s 不应再有内置播放解析实现", source)
 		}
 	}
 }
