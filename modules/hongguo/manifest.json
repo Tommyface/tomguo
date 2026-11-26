@@ -1,0 +1,23 @@
+{
+  "id": "hongguo",
+  "name": "红果短剧",
+  "version": "1.0.0",
+  "description": "红果短剧：网页 _ROUTER_DATA 驱动，分类页 24 条/页、详情含 vid_list。播放地址受保护，仅前几集网页试看可用；备用 API 域名不可达时如实报错。",
+  "runtime": "js",
+  "api": 1,
+  "adult": false,
+  "hosts": [
+    "hongguoduanju.com",
+    "djapi.999888456.xyz"
+  ],
+  "capabilities": [
+    "cover"
+  ],
+  "allowEmptyCatalog": true,
+  "mainSha256": "398b455f7c236326d83749dc2f8d31e8b5cbaa84bde210268db845d75ebe2a02",
+  "coverHosts": [
+    "p6-novel.byteimg.com",
+    "p3-novel.byteimg.com",
+    "p11-sign.douyinpic.com"
+  ]
+}
