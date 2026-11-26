@@ -549,6 +549,12 @@ func nativeDispatch(input nativeInput) (any, error) {
 		return engine.prepareCover(ctx, input.Drama)
 	case "modules":
 		return map[string]any{"items": engine.listModules()}, nil
+	case "shadow":
+		if input.Command == "list" || input.Source == "" {
+			return map[string]any{"modes": shadowModes()}, nil
+		}
+		setShadowMode(input.Source, input.Command)
+		return map[string]any{"source": input.Source, "mode": input.Command, "modes": shadowModes()}, nil
 	case "probeSources":
 		items := engine.probeSources(ctx, input.Sources, input.Force)
 		return map[string]any{"items": items}, nil
@@ -647,7 +653,7 @@ func (engine *nativeEngine) nativeCatalog(ctx context.Context, input nativeInput
 		return nativeCatalogResult{}, errors.New("请选择有效站源")
 	}
 	// 已安装的模块接管同名站源，内置实现作为兜底。
-	if moduleSource(source) != nil {
+	if moduleTakesOver(source) {
 		items, more, err := engine.downloader.moduleCatalog(ctx, source, max(1, input.Page), strings.TrimSpace(input.Category), strings.TrimSpace(input.Query))
 		if err != nil {
 			return nativeCatalogResult{}, err
@@ -702,7 +708,7 @@ func (engine *nativeEngine) nativeCatalog(ctx context.Context, input nativeInput
 	}
 	d := engine.downloader
 	result := nativeCatalogResult{Items: []nativeDrama{}, Page: page}
-	if query != "" && moduleSource(source) != nil {
+	if query != "" && moduleTakesOver(source) {
 		items, more, err := d.moduleCatalog(ctx, source, page, category, query)
 		if err != nil {
 			return result, err
@@ -783,7 +789,7 @@ func (engine *nativeEngine) nativeCatalog(ctx context.Context, input nativeInput
 			}
 		} else {
 			// 表外源：运行时加载的 JS 模块优先，其次运行时注入的自定义源。
-			if moduleSource(source) != nil {
+			if moduleTakesOver(source) {
 				items, result.HasMore, err = d.moduleCatalog(ctx, source, page, category, strings.TrimSpace(input.Query))
 			} else if isCustomSource(source) && d.customSources != nil {
 				cfg, ok := d.customSources.get(source)
@@ -831,7 +837,7 @@ func (engine *nativeEngine) nativeDetail(ctx context.Context, drama nativeDrama)
 	if !valid {
 		return nil, errors.New("剧集信息无效，请刷新剧库")
 	}
-	if moduleSource(source) != nil {
+	if moduleTakesOver(source) {
 		drama, chapters, err := engine.downloader.moduleDetail(ctx, source, sourceID)
 		if err != nil {
 			return nil, err
@@ -862,7 +868,7 @@ func (engine *nativeEngine) nativeDetail(ctx context.Context, drama nativeDrama)
 		}
 	} else {
 		// 表外源：运行时模块优先，其次运行时注入的自定义源，最后回落到旧版黄果取集。
-		if moduleSource(source) != nil {
+		if moduleTakesOver(source) {
 			raw, chapters, err = engine.downloader.moduleDetail(ctx, source, sourceID)
 		} else if isCustomSource(source) && engine.downloader.customSources != nil {
 			cfg, ok := engine.downloader.customSources.get(source)
