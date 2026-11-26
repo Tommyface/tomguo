@@ -20,11 +20,9 @@ func isRetiredSource(source string) bool {
 
 var bundledModules = []moduleManifest{
 	{ID: sourceHongguo, Name: "红果", Description: "官方短剧 · 分类与搜索", Runtime: moduleRuntimeBuiltin, Capabilities: []string{"search", "recommendations"}},
-	{ID: sourceHanxiaoquan, Name: "韩小圈", Description: "短剧 · 分类与搜索", Runtime: moduleRuntimeBuiltin, Capabilities: []string{"search"}},
 	{ID: sourceGuipian, Name: "鬼片", Description: "短剧 · 分类与搜索", Runtime: moduleRuntimeBuiltin, Capabilities: []string{"search"}},
 	{ID: sourceSorani, Name: "青空次元", Description: "动漫 · 分类与搜索", Runtime: moduleRuntimeBuiltin, Capabilities: []string{"search"}, Retired: true, RetiredReason: "青空次元：api.sorani.cc 域名解析失败"},
 	{ID: sourceHuangdou, Name: "黄豆", Description: "精选短剧 · AES + HMAC 加密接口", Runtime: moduleRuntimeBuiltin, Capabilities: []string{"search"}},
-	{ID: sourceHuangju, Name: "剧果", Description: "热门 · 最新 · 分类短剧", Runtime: moduleRuntimeBuiltin, Capabilities: []string{"search"}},
 	{ID: sourceChengguo, Name: "橙果", Description: "原创 · AI 短剧 · 分类短剧", Runtime: moduleRuntimeBuiltin, Capabilities: []string{"search"}, Retired: true, RetiredReason: "橙果：内置实现依赖空密钥，已由同 id 插件取代"},
 	{ID: sourceHuakui, Name: "花魁", Description: "剧集站 huakui.net", Runtime: moduleRuntimeBuiltin, Capabilities: []string{"search"}},
 	{ID: sourceHuangguoMain, Name: "黄果主站", Description: "falpius / whmxun 主站", Runtime: moduleRuntimeBuiltin, Capabilities: []string{"search"}},
@@ -35,7 +33,5 @@ var bundledModules = []moduleManifest{
 	{ID: sourceHuangguoAI, Name: "黄果 AI", Description: "AI 短剧 · 走 Worker 反代", Runtime: moduleRuntimeBuiltin, Capabilities: []string{"search"}, Retired: true, RetiredReason: "黄果 AI：全部镜像 60s 超时"},
 	{ID: sourceCloudFront, Name: "黄果旧版", Description: "旧 API 剧库", Runtime: moduleRuntimeBuiltin},
 	{ID: sourceDSD, Name: "DSD", Description: "旧聚合接口", Runtime: moduleRuntimeBuiltin, Retired: true, RetiredReason: "DSD：主域 26s 超时"},
-	{ID: sourceDuanju51, Name: "51短剧", Description: "短剧 · 全集合集", Runtime: moduleRuntimeBuiltin, Capabilities: []string{"search"}},
-	{ID: sourceHema, Name: "河马", Description: "短剧 · 全集合集", Runtime: moduleRuntimeBuiltin, Capabilities: []string{"search"}},
 	{ID: sourceEZDMW, Name: "E站", Description: "动漫 · 新番 · 完结", Runtime: moduleRuntimeBuiltin, Capabilities: []string{"search"}},
 }
