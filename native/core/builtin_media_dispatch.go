@@ -39,16 +39,6 @@ var builtinMediaTable = map[string]builtinMediaFunc{
 		*media = result
 		return true, false, err
 	},
-	sourceSorani: func(d *Downloader, ctx context.Context, chapter *Chapter, task Task, media *providerMedia) (bool, bool, error) {
-		result, err := d.resolveSoraniMedia(ctx, task)
-		*media = result
-		return true, false, err
-	},
-	sourceGuipian: func(d *Downloader, ctx context.Context, chapter *Chapter, task Task, media *providerMedia) (bool, bool, error) {
-		result, err := d.resolveGuipianMedia(ctx, task)
-		*media = result
-		return true, false, err
-	},
 	sourceHanxiaoquan: func(d *Downloader, ctx context.Context, chapter *Chapter, task Task, media *providerMedia) (bool, bool, error) {
 		result, err := d.resolveHanxiaoquanMedia(ctx, task)
 		*media = result
@@ -102,10 +92,6 @@ var builtinMediaTable = map[string]builtinMediaFunc{
 		*media = result
 		return true, false, nil
 	},
-	// 下面这些源详情里存的是占位协议地址，播放时才抓页面换新地址。
-	sourceEZDMW: placeholderMedia("ezdmw-play://", func(d *Downloader, ctx context.Context, task Task) (providerMedia, error) {
-		return d.resolveEZDMWPlayback(ctx, task)
-	}),
 	sourceHema: placeholderMedia("hema-play://", func(d *Downloader, ctx context.Context, task Task) (providerMedia, error) {
 		return d.resolveHemaMedia(ctx, task)
 	}),
@@ -180,5 +166,4 @@ var parseMediaFromPage = map[string]func(body, pageURL string) string{
 
 // chapterNeedsPlaylistProbe 标记需要额外识别 EZDMW 伪播放列表地址的源。
 var chapterNeedsPlaylistProbe = map[string]bool{
-	sourceEZDMW: true,
 }
