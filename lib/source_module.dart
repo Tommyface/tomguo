@@ -120,12 +120,41 @@ class RegistryEntry {
     required this.version,
     required this.description,
     required this.adult,
+    this.available = true,
+    this.state = 'active',
+    this.reason = '',
+    this.minAppVersion = '',
+    this.replacedBy = '',
   });
   final String id;
   final String name;
   final String version;
   final String description;
   final bool adult;
+  final bool available;
+  final String state;
+  final String reason;
+  final String minAppVersion;
+  final String replacedBy;
+
+  bool get canInstall {
+    if (!available) return false;
+    return state != 'retired' && state != 'blocked';
+  }
+
+  String get stateLabel {
+    if (reason.isNotEmpty) return reason;
+    switch (state) {
+      case 'deprecated':
+        return '即将停用';
+      case 'retired':
+        return '已下架';
+      case 'blocked':
+        return '已停用';
+      default:
+        return '';
+    }
+  }
 
   factory RegistryEntry.fromJson(Map<String, dynamic> json) => RegistryEntry(
     id: (json['id'] ?? '').toString(),
@@ -133,5 +162,10 @@ class RegistryEntry {
     version: (json['version'] ?? '').toString(),
     description: (json['description'] ?? '').toString(),
     adult: json['adult'] == true,
+    available: json['available'] == null ? true : json['available'] == true,
+    state: (json['state'] ?? 'active').toString(),
+    reason: (json['reason'] ?? '').toString(),
+    minAppVersion: (json['minAppVersion'] ?? '').toString(),
+    replacedBy: (json['replacedBy'] ?? '').toString(),
   );
 }
