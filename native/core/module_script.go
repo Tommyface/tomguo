@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"sync"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/dop251/goja"
+	"github.com/dop251/goja_nodejs/eventloop"
 )
 
 // moduleInvoker 把 exports[name] 包成统一调用，进出都是 JSON 字符串。
@@ -43,6 +44,7 @@ type jsInstance struct {
 	vm     *goja.Runtime
 	invoke goja.Callable
 	ctx    context.Context
+	loop   *eventloop.EventLoop
 }
 
 // moduleHost 是模块可用的宿主能力：请求与限速。
@@ -68,6 +70,11 @@ func newJSProvider(module *jsModule) *jsProvider {
 	}
 }
 
+// call 通过 eventloop 驱动模块导出。
+//
+// 同步模块（api 1）与异步模块（api 2）共用 moduleInvoker 的 callback 协议：
+// 两者都会在回调里返回 (jsonText, errorText)，因此调用方不关心模块是哪种协议。
+// eventloop 让 JS 的 await / Promise.all 真正可并发，超时则通过 Interrupt 打断。
 func (p *jsProvider) call(ctx context.Context, function string, result any, arguments ...any) error {
 	callCtx, cancel := context.WithTimeout(ctx, moduleCallTimeout)
 	defer cancel()
@@ -81,20 +88,59 @@ func (p *jsProvider) call(ctx context.Context, function string, result any, argu
 	}
 	defer func() { p.idle <- instance }()
 	instance.ctx = callCtx
-	interrupted := make(chan struct{})
-	stop := context.AfterFunc(callCtx, func() {
-		instance.vm.Interrupt(callCtx.Err())
-		close(interrupted)
+
+	type callbackResult struct {
+		jsonText string
+		errText  string
+	}
+	done := make(chan callbackResult, 1)
+	started := make(chan struct{})
+	queued := instance.loop.RunOnLoop(func(vm *goja.Runtime) {
+		close(started)
+		_, invokeErr := instance.invoke(goja.Undefined(),
+			vm.ToValue(function), vm.ToValue(string(encoded)),
+			vm.ToValue(func(jsonValue, errorValue goja.Value) {
+				text := ""
+				if jsonValue != nil && !goja.IsUndefined(jsonValue) && !goja.IsNull(jsonValue) {
+					text = jsonValue.String()
+				}
+				message := ""
+				if errorValue != nil && !goja.IsUndefined(errorValue) && !goja.IsNull(errorValue) {
+					message = errorValue.String()
+				}
+				select {
+				case done <- callbackResult{jsonText: text, errText: message}:
+				default:
+				}
+			}))
+		if invokeErr != nil {
+			select {
+			case done <- callbackResult{errText: invokeErr.Error()}:
+			default:
+			}
+		}
 	})
-	value, err := instance.invoke(goja.Undefined(), instance.vm.ToValue(function), instance.vm.ToValue(string(encoded)))
-	if !stop() {
-		<-interrupted
-		instance.vm.ClearInterrupt()
+	if !queued {
+		return errors.New("模块运行环境已停止")
 	}
-	if err != nil {
-		return moduleError(callCtx, err)
+
+	select {
+	case <-callCtx.Done():
+		instance.loop.Terminate()
+		return callCtx.Err()
+	case <-started:
 	}
-	return json.Unmarshal([]byte(value.String()), result)
+	select {
+	case <-callCtx.Done():
+		instance.loop.Terminate()
+		return callCtx.Err()
+	case got := <-done:
+		instance.loop.StopNoWait()
+		if got.errText != "" {
+			return errors.New(got.errText)
+		}
+		return json.Unmarshal([]byte(got.jsonText), result)
+	}
 }
 
 func moduleError(ctx context.Context, err error) error {
@@ -138,31 +184,48 @@ func (p *jsProvider) acquire(ctx context.Context) (*jsInstance, error) {
 }
 
 func (p *jsProvider) newInstance() (*jsInstance, error) {
-	vm := goja.New()
-	vm.SetFieldNameMapper(goja.TagFieldNameMapper("json", true))
-	instance := &jsInstance{vm: vm, ctx: context.Background()}
-	module, exports := vm.NewObject(), vm.NewObject()
-	if err := module.Set("exports", exports); err != nil {
+	loop := eventloop.NewEventLoop()
+	instance := &jsInstance{ctx: context.Background(), loop: loop}
+	ready := make(chan error, 1)
+	go func() {
+		loop.Run(func(vm *goja.Runtime) {
+			instance.vm = vm
+			vm.SetFieldNameMapper(goja.TagFieldNameMapper("json", true))
+			module, exports := vm.NewObject(), vm.NewObject()
+			if err := module.Set("exports", exports); err != nil {
+				ready <- err
+				return
+			}
+			wrapper, err := vm.RunProgram(p.module.program)
+			if err != nil {
+				ready <- moduleError(instance.ctx, err)
+				return
+			}
+			load, _ := goja.AssertFunction(wrapper)
+			if _, err := load(goja.Undefined(), module, exports, p.hostObject(instance)); err != nil {
+				ready <- moduleError(instance.ctx, err)
+				return
+			}
+			invoker, err := vm.RunProgram(moduleInvoker)
+			if err != nil {
+				ready <- err
+				return
+			}
+			bind, _ := goja.AssertFunction(invoker)
+			bound, err := bind(goja.Undefined(), module.Get("exports"))
+			if err != nil {
+				ready <- moduleError(instance.ctx, err)
+				return
+			}
+			instance.invoke, _ = goja.AssertFunction(bound)
+			ready <- nil
+		})
+		loop.Start()
+	}()
+	if err := <-ready; err != nil {
+		loop.StopNoWait()
 		return nil, err
 	}
-	wrapper, err := vm.RunProgram(p.module.program)
-	if err != nil {
-		return nil, moduleError(instance.ctx, err)
-	}
-	load, _ := goja.AssertFunction(wrapper)
-	if _, err := load(goja.Undefined(), module, exports, p.hostObject(instance)); err != nil {
-		return nil, moduleError(instance.ctx, err)
-	}
-	invoker, err := vm.RunProgram(moduleInvoker)
-	if err != nil {
-		return nil, err
-	}
-	bind, _ := goja.AssertFunction(invoker)
-	bound, err := bind(goja.Undefined(), module.Get("exports"))
-	if err != nil {
-		return nil, moduleError(instance.ctx, err)
-	}
-	instance.invoke, _ = goja.AssertFunction(bound)
 	return instance, nil
 }
 
