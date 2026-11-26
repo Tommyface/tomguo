@@ -37,9 +37,6 @@ var rankingBoards = []rankingBoard{
 	{ID: "yeguo-recommend", Source: sourceYeguo, Name: "目录榜", Description: "野果默认目录顺序，按源站返回顺序展示。"},
 	{ID: "dsd-catalog", Source: sourceDSD, Name: "目录榜", Description: "帝果分类目录聚合顺序，按源站返回顺序展示。"},
 	// 参考 zhenguojianTV v0.8.31：51短剧改版后的三张单页榜。
-	{ID: "51duanju-total", Source: sourceDuanju51, Name: "热播榜", Description: "51短剧当前热播 TOP 20。", upstreamKey: "total"},
-	{ID: "51duanju-week", Source: sourceDuanju51, Name: "推荐榜", Description: "51短剧编辑推荐 TOP 20。", upstreamKey: "week"},
-	{ID: "51duanju-month", Source: sourceDuanju51, Name: "潜力榜", Description: "51短剧潜力新剧 TOP 20。", upstreamKey: "month"},
 }
 
 type rankingItem struct {
@@ -94,7 +91,7 @@ func singlePageRankingBoard(board rankingBoard) bool {
 // 没有实现的榜单项不能在 UI 里出现，否则点了只会报错。
 func nativeRankingBoardSupported(board rankingBoard) bool {
 	switch board.Source {
-	case sourceHongguo, sourceHuangdou, sourceHuangju, sourceDuanju51:
+	case sourceHongguo, sourceHuangdou, sourceHuangju:
 		return true
 	default:
 		return false
@@ -196,28 +193,6 @@ func (d *Downloader) fetchRankingPage(ctx context.Context, board rankingBoard, p
 		return parseHuangguoRanking(body, board)
 	case sourceHuangju, sourceYeguo, sourceDSD:
 		return d.fetchCatalogRankingPage(ctx, board, page)
-	case sourceDuanju51:
-		// 51短剧改版后为 /ranks/{hot,recommend,potential}/ 三张单页榜。
-		if page != 1 {
-			return rankingPage{}, errors.New("该榜单只有一页")
-		}
-		path := "/ranks/hot/"
-		switch board.upstreamKey {
-		case "week":
-			path = "/ranks/recommend/"
-		case "month":
-			path = "/ranks/potential/"
-		}
-		body, err := d.fetchDuanju51Page(ctx, path)
-		if err != nil {
-			return rankingPage{}, err
-		}
-		result, err := buildDuanju51Ranking(duanju51CardDramas(body), board, page)
-		if err != nil {
-			return rankingPage{}, err
-		}
-		result.HasMore, result.TotalPages = false, 1
-		return result, nil
 	default:
 		return rankingPage{}, fmt.Errorf("不支持的榜单站源 %s", board.Source)
 	}
