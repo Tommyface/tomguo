@@ -55,3 +55,12 @@ func isListresPlaylist(raw string) bool {
 	parsed, err := url.Parse(strings.TrimSpace(raw))
 	return err == nil && strings.Contains(strings.ToLower(parsed.Path), "/index/listres/")
 }
+
+// firstRegexGroup 返回正则第一个捕获组，供多个源共用。
+func firstRegexGroup(re *regexp.Regexp, raw string) string {
+	match := re.FindStringSubmatch(raw)
+	if len(match) < 2 {
+		return ""
+	}
+	return match[1]
+}
