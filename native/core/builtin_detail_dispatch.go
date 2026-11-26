@@ -106,10 +106,6 @@ var builtinDetailTable = map[string]builtinDetailFunc{
 		title, chapters, err := d.GetHuangguoChapters(ctx, source, sourceID)
 		return builtinDetailOutcome{Title: title, Chapters: chapters}, err
 	},
-	sourceHuaguo:  maccmsDetail(sourceHuaguo),
-	sourceWangguo: maccmsDetail(sourceWangguo),
-	sourceFaguo:   maccmsDetail(sourceFaguo),
-	sourceWuguo:   maccmsDetail(sourceWuguo),
 }
 
 // 有些源的列表页集数少于详情页，收尾时取两者的较大值。
