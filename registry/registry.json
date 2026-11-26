@@ -95,6 +95,28 @@
       "replacedBy": ""
     },
     {
+      "id": "hanxiaoquan",
+      "name": "韩小圈",
+      "version": "1.0.0",
+      "description": "韩小圈：迁移自内置实现。",
+      "minApi": 0,
+      "adult": false,
+      "capabilities": [
+        "cover"
+      ],
+      "hosts": [
+        "www.jennyhow.com"
+      ],
+      "mainSha256": "a3e558224ca0fe5bb28ecd0b3a08b27e796416b6582481d70e1765ee836c9866",
+      "zip": "https://tommyfac.ccwu.cc/tomguo/hanxiaoquan-1.0.0.zip",
+      "size": 10824,
+      "available": true,
+      "state": "active",
+      "reason": "",
+      "minAppVersion": "",
+      "replacedBy": ""
+    },
+    {
       "id": "hongguo",
       "name": "红果短剧",
       "version": "1.0.0",
@@ -133,6 +155,28 @@
       "mainSha256": "b106da7295ad5620376e51c2ca4b3745241cd9cdffe36cd055e26fccc6c65b09",
       "zip": "https://tommyfac.ccwu.cc/tomguo/huaguo-1.0.0.zip",
       "size": 9099,
+      "available": true,
+      "state": "active",
+      "reason": "",
+      "minAppVersion": "",
+      "replacedBy": ""
+    },
+    {
+      "id": "huangju",
+      "name": "剧果",
+      "version": "1.0.0",
+      "description": "剧果：迁移自内置实现。",
+      "minApi": 0,
+      "adult": false,
+      "capabilities": [
+        "cover"
+      ],
+      "hosts": [
+        "www.huangju.net"
+      ],
+      "mainSha256": "1e38d44f0b88615b238245e4af65cf75643272fe966e91a37a1d8f2b79360ffe",
+      "zip": "https://tommyfac.ccwu.cc/tomguo/huangju-1.0.0.zip",
+      "size": 6158,
       "available": true,
       "state": "active",
       "reason": "",
