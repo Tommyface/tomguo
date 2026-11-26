@@ -112,24 +112,12 @@ var builtinCatalogTable = map[string]builtinCatalogFunc{
 		return d.fetchDSDCatalogPage(ctx, page, category, query)
 	}),
 
-	sourceSorani: simpleCatalog(func(d *Downloader, ctx context.Context, page int, category, query string) ([]Drama, bool, error) {
-		return d.fetchSoraniCatalogPage(ctx, page, category, query)
-	}),
-
-	sourceGuipian: simpleCatalog(func(d *Downloader, ctx context.Context, page int, category, query string) ([]Drama, bool, error) {
-		return d.fetchGuipianCatalogPage(ctx, page, category, query)
-	}),
-
 	sourceHanxiaoquan: simpleCatalog(func(d *Downloader, ctx context.Context, page int, category, query string) ([]Drama, bool, error) {
 		return d.fetchHanxiaoquanCatalogPage(ctx, page, category, query)
 	}),
 
 	sourceDuanju51: simpleCatalog(func(d *Downloader, ctx context.Context, page int, category, query string) ([]Drama, bool, error) {
 		return d.fetchDuanju51CatalogPage(ctx, page, category, query)
-	}),
-
-	sourceEZDMW: simpleCatalog(func(d *Downloader, ctx context.Context, page int, category, query string) ([]Drama, bool, error) {
-		return d.fetchEZDMWCatalogPage(ctx, page, category, query)
 	}),
 
 	sourceHema: simpleCatalog(func(d *Downloader, ctx context.Context, page int, category, query string) ([]Drama, bool, error) {
