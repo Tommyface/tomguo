@@ -37,15 +37,10 @@ func (d *Downloader) providerBaseURL(source string) string {
 		configured, fallback = d.cfg.HuangguoVideoURL, huangguoVideoBaseURL
 	case sourceHuangdou:
 		configured, fallback = d.cfg.HuangdouURL, huangdouBaseURL
-	case sourceHuangju:
-		configured, fallback = d.cfg.HuangjuURL, huangjuBaseURL
 	case sourceYeguo:
 		configured, fallback = d.cfg.YeguoURL, yeguoBaseURL
 	case sourceDSD:
 		configured, fallback = d.cfg.DSDURL, dsdBaseURL
-	case sourceHanxiaoquan:
-		configured, fallback = d.cfg.HanxiaoquanURL, hanxiaoquanSiteBaseURL
-	// 参考 zhenguojianTV v0.8.31 新增站源（无独立配置项，用内置 baseURL）。
 	case sourceDuanju51:
 		fallback = duanju51BaseURL
 	case sourceHema:
@@ -149,17 +144,11 @@ func (d *Downloader) resolveProviderMedia(ctx context.Context, task Task) (provi
 	if chapter.Source == sourceCloudFront {
 		return d.resolveLegacyMedia(ctx, task)
 	}
-	if chapter.Source == sourceHuangju {
-		return d.resolveHuangjuMedia(ctx, task)
-	}
 	if chapter.Source == sourceYeguo {
 		return d.resolveYeguoMedia(ctx, task)
 	}
 	if chapter.Source == sourceDSD {
 		return d.resolveDSDMedia(ctx, task)
-	}
-	if chapter.Source == sourceHanxiaoquan {
-		return d.resolveHanxiaoquanMedia(ctx, task)
 	}
 	if chapter.Source == sourceHuangguoMain {
 		return d.resolveHuangguoWebMedia(ctx, task)
