@@ -113,8 +113,7 @@ func isHuangguoProviderSource(source string) bool {
 	}
 	switch canonicalProviderSource(source) {
 	case sourceHuangguoAI, sourceHuangguoVideo, sourceHuangdou, sourceHongguo, sourceHuangju, sourceYeguo, sourceDSD, sourceCloudFront, sourceHanxiaoquan,
-		sourceDuanju51, sourceHema, sourceHuangguoOfficial, sourceHuangguoMain, sourceHuangguoSelected, sourceHuangguoWelfare,
-		sourceHuaguo, sourceWangguo, sourceFaguo, sourceWuguo:
+		sourceDuanju51, sourceHema, sourceHuangguoOfficial, sourceHuangguoMain, sourceHuangguoSelected, sourceHuangguoWelfare:
 		return true
 	default:
 		return moduleSource(canonicalProviderSource(source)) != nil
@@ -159,14 +158,6 @@ func canonicalProviderSource(source string) string {
 		return sourceHuangguoSelected
 	case "huangguo-welfare", "黄果福利", "d24dalcptr65cw.cloudfront.net":
 		return sourceHuangguoWelfare
-	case "huaguo", "花果", "花生", "www.zywest263.com", "zywest263.com":
-		return sourceHuaguo
-	case "wangguo", "网果", "短剧网", "www.duanju2.com", "duanju2.com":
-		return sourceWangguo
-	case "faguo", "发果", "168影院", "www.xzyx168.com", "xzyx168.com":
-		return sourceFaguo
-	case "wuguo", "伍果", "五五", "www.duanju55.com", "duanju55.com":
-		return sourceWuguo
 			default:
 		return strings.TrimSpace(source)
 	}
