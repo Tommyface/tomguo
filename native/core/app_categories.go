@@ -51,15 +51,10 @@ func validNativeCategory(source, category string) bool {
 		return err == nil && id > 0
 	case sourceCloudFront:
 		return strings.TrimSpace(category) == category
-	case sourceHuangju:
-		return category == huangjuNewestCategory || validHuangjuID(category) && !strings.HasPrefix(category, "@")
 	case sourceYeguo:
 		return validYeguoCategory(category)
 	case sourceDSD:
 		return webProviderNumericID.MatchString(category)
-	case sourceHanxiaoquan:
-		return validHanxiaoquanCategory(category)
-	// 参考 zhenguojianTV v0.8.31 新增站源。
 	case sourceDuanju51:
 		return validDuanju51Category(category)
 	case sourceHema:
@@ -106,12 +101,6 @@ func (engine *nativeEngine) nativeCategories(ctx context.Context, source string,
 		if err == nil {
 			all = append(all, parseHuangguoVideoCategories(body)...)
 		}
-	case sourceHuangju:
-		var categories []nativeCategory
-		categories, err = d.fetchHuangjuCategories(ctx)
-		if err == nil {
-			all = append(all, categories...)
-		}
 	case sourceYeguo:
 		var categories []nativeCategory
 		categories, err = d.fetchYeguoCategories(ctx)
@@ -124,8 +113,6 @@ func (engine *nativeEngine) nativeCategories(ctx context.Context, source string,
 		if err == nil {
 			all = append(all, categories...)
 		}
-	case sourceHanxiaoquan:
-		all = append(all, d.fetchHanxiaoquanCategories()...)
 	case sourceHema:
 		var categories []nativeCategory
 		categories, err = d.fetchHemaCategories(ctx)
