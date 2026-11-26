@@ -26,20 +26,13 @@ func TestBuiltinCatalogKnownRejectsUnknown(t *testing.T) {
 }
 
 func TestBuiltinCatalogSinglePageSources(t *testing.T) {
-	// 黄果主站/精选/福利/花魁只提供第一页；第二页必须返回空而不报错。
+	// 主程序不内置站源，分发表应为空：任何内置源 id 都不应命中。
 	for _, id := range []string{sourceHuangguoMain, sourceHuangguoSelected, sourceHuangguoWelfare} {
-		fetch := builtinCatalogTable[id]
-		if fetch == nil {
-			t.Fatalf("%s 不在分发表里", id)
-		}
-		out, err := fetch(nil, nil, context.Background(), 2, "", "")
-		if err != nil {
-			t.Errorf("%s 第二页返回错误：%v", id, err)
-		}
-		if len(out.Items) != 0 {
-			t.Errorf("%s 第二页返回了 %d 条，期望 0", id, len(out.Items))
+		if builtinCatalogKnown(id) {
+			t.Fatalf("%s 不应再有内置目录实现", id)
 		}
 	}
+	_ = context.Background
 }
 
 func TestCatalogDispatchHasNoHardcodedSwitch(t *testing.T) {
