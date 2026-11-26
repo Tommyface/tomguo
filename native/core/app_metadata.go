@@ -3,14 +3,12 @@ package core
 import (
 	"context"
 	"errors"
-	"net/url"
 	"strings"
 	"time"
 )
 
 func nativeNeedsExtraMetadata(drama nativeDrama) bool {
-	return drama.Source == sourceHongguo && drama.OnlineDate == "" ||
-		drama.Source == sourceHuangdou && (drama.Heat == "" || drama.VIP == nil)
+	return drama.Source == sourceHuangdou && (drama.Heat == "" || drama.VIP == nil)
 }
 
 func (engine *nativeEngine) nativeExtraMetadata(ctx context.Context, drama nativeDrama) (nativeDrama, error) {
@@ -25,18 +23,6 @@ func (engine *nativeEngine) nativeExtraMetadata(ctx context.Context, drama nativ
 	defer cancel()
 	var raw Drama
 	switch source {
-	case sourceHongguo:
-		if !hongguoNumericID.MatchString(id) {
-			return drama, errors.New("红果剧集 ID 无效")
-		}
-		body, err := engine.downloader.fetchProviderText(ctx, hongguoBaseURL+"/detail?series_id="+url.QueryEscape(id), hongguoBaseURL+"/")
-		if err != nil {
-			return drama, err
-		}
-		raw, err = parseHongguoSortDetail(body, id)
-		if err != nil {
-			return drama, err
-		}
 	case sourceHuangdou:
 		row, err := engine.downloader.huangdouDetail(ctx, id)
 		if err != nil {
