@@ -1,0 +1,22 @@
+{
+  "id": "huangguo-selected",
+  "name": "黄果精选",
+  "version": "1.0.0",
+  "description": "黄果精选：本站为隐藏入口站源，模块按实测 HTML/RSC 结构解析目录、详情与播放。",
+  "runtime": "js",
+  "api": 1,
+  "adult": true,
+  "hosts": [
+    "d2teten6pcf3ig.cloudfront.net"
+  ],
+  "capabilities": [
+    "cover"
+  ],
+  "allowEmptyCatalog": true,
+  "mainSha256": "f7f1dc865bb37c2b44f17850fed31a2e40cd6d7c0bacfc638c2f74fa45ff894b",
+  "coverHosts": [
+    "d3n8qx4rvy4vol.cloudfront.net",
+    "zzzznnn.lkkwip.cn",
+    "d2teten6pcf3ig.cloudfront.net"
+  ]
+}
