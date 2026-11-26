@@ -44,10 +44,8 @@ const (
 
 // crossSourceOrder 是可搜索站源的固定顺序：先跑实测稳定的，再跑可能超时的。
 // 运行时安装的 JS 站源模块会追加在末尾（见 moduleCrossSourceOrder）。
-var crossSourceOrder = []string{
-	sourceHuangdou,
-	sourceHongguo,
-}
+// 主程序不内置任何站源，换源只走用户导入的模块。
+var crossSourceOrder = []string{}
 
 // moduleCrossSourceOrder 返回已安装模块的站源 id，按注册顺序稳定排序。
 func moduleCrossSourceOrder() []string {
