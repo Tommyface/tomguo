@@ -111,7 +111,7 @@ func isHuangguoProviderSource(source string) bool {
 	}
 	switch canonicalProviderSource(source) {
 	case sourceHuangguoAI, sourceHuangguoVideo, sourceHuangdou, sourceHongguo, sourceHuangju, sourceYeguo, sourceDSD, sourceCloudFront, sourceHanxiaoquan,
-		sourceDuanju51, sourceHema, sourceChengguo, sourceHuangguoOfficial, sourceHuangguoMain, sourceHuangguoSelected, sourceHuangguoWelfare,
+		sourceDuanju51, sourceHema, sourceHuangguoOfficial, sourceHuangguoMain, sourceHuangguoSelected, sourceHuangguoWelfare,
 		sourceHuaguo, sourceWangguo, sourceFaguo, sourceWuguo, sourceMxdm, sourceJcydm:
 		return true
 	default:
@@ -149,8 +149,6 @@ func canonicalProviderSource(source string) string {
 		return sourceDuanju51
 	case "hema", "河马", "河马剧场", "河马短剧", "www.kuaikaw.cn", "kuaikaw.cn":
 		return sourceHema
-	case "chengguo", "橙果", "橙果短剧", "chengguodj.com", "www.chengguodj.com", "api2.chengguodj.com", "12.cyjoifcwr.cc":
-		return sourceChengguo
 	case "huangguo-official", "黄果官网", "officialWebsite", "dqsibjrdsxx5r.cloudfront.net":
 		return sourceHuangguoOfficial
 	case "huangguo-main", "黄果主站", "falpius.com", "whmxun.com":
@@ -288,9 +286,6 @@ func (d *Downloader) GetHuangguoChapters(ctx context.Context, source, sourceID s
 		return drama.DisplayTitle(), chapters, err
 	case sourceHuangguoSelected, sourceHuangguoWelfare:
 		drama, chapters, err := d.fetchHuangguoPortalDetail(ctx, source, sourceID)
-		return drama.DisplayTitle(), chapters, err
-	case sourceChengguo:
-		drama, chapters, err := d.fetchChengguoDetail(ctx, sourceID)
 		return drama.DisplayTitle(), chapters, err
 	case sourceCloudFront:
 		return d.fetchLegacyChapters(ctx, sourceID)
