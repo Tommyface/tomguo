@@ -4,8 +4,8 @@
 // 站点：https://www.xzyx168.com
 var SITE = 'https://www.xzyx168.com';
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
-var DETAIL_RE = new RegExp('/xzyxvd/(\d+)\.html', 'i');
-var PLAY_RE = new RegExp('/xzyxvp/(\d+)n(\d+)m(\d+)\.html', 'i');
+var DETAIL_RE = new RegExp('/xzyxvd/(\\d+)\\.html', 'i');
+var PLAY_RE = new RegExp('/xzyxvp/(\\d+)n(\\d+)m(\\d+)\\.html', 'i');
 
 // 用 host.parse 拿到 DOM；没有 DOM 适配器时退回正则。
 function doc(html) {
@@ -39,12 +39,14 @@ function fetchText(url, referer) {
 }
 function abs(raw, base) {
   if (!raw) return '';
-  if (/^https?:/i.test(raw)) return raw;
+  raw = String(raw);
+  if (/^https?:\/\//i.test(raw)) return raw;
   if (/^\/\//.test(raw)) return 'https:' + raw;
   if (!base) base = SITE + '/';
-  var u = host.parseUrl ? host.parseUrl(base) : null;
-  var origin = u ? (u.protocol + '//' + u.host) : SITE;
-  return raw.charAt(0) === '/' ? origin + raw : origin + '/' + raw;
+  var m = /^(https?:\/\/[^\/]+)/i.exec(base);
+  var origin = m ? m[1] : SITE.replace(/\/$/, '');
+  var path = raw.charAt(0) === '/' ? raw : '/' + raw;
+  return origin + path;
 }
 function detailId(href) {
   var m = DETAIL_RE.exec(href || '');
@@ -121,9 +123,19 @@ function parseDetail(html, pageUrl) {
 }
 function attrText(s) { var m = /title=["']([^"']+)["']/i.exec(s); return m ? m[1] : s; }
 function parsePlayMedia(html, pageUrl) {
-  var m = /(?:player_aaaa\s*=\s*|\"url\"\s*:\s*|\"playurl\"\s*:\s*)(?:JSON\.parse\()?["']([^"']+\.(?:m3u8|mp4)[^"']*)["']/i.exec(html)
-       || /(["']?(?:https?:)?\/\/[^\s"'<>\\]+?\.(?:m3u8|mp4)(?:\?[^\s"'<>\\]*)?)/i.exec(html);
-  if (m) return abs(m[1].replace(/^["']|["']$/g, ''), pageUrl);
+  // MacCMS 常见形态：var player_aaaa={"url":"https:\/\/...\/index.m3u8",...}
+  var pm = /var\s+player_aaaa\s*=\s*(\{[\s\S]*?\})\s*<\/script>/i.exec(html);
+  if (pm) {
+    try {
+      var obj = JSON.parse(pm[1]);
+      var u = obj.url || obj.playurl || '';
+      if (u) return abs(String(u).split('\\/').join('/'), pageUrl);
+    } catch (e) {}
+  }
+  // 先去掉 URL 里的 \/ 转义，再用简单正则抓 m3u8/mp4
+  var flat = String(html).split('\\/').join('/');
+  var m = /(https?:\/\/[^\s"'<>]+?\.(?:m3u8|mp4)(?:\?[^\s"'<>]*)?)/i.exec(flat);
+  if (m) return m[1];
   var f = /<iframe\b[^>]*src=["']([^"']+)["']/i.exec(html);
   return f ? abs(f[1], pageUrl) : '';
 }
