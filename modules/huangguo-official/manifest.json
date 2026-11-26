@@ -1,0 +1,22 @@
+{
+  "id": "huangguo-official",
+  "name": "黄果官网",
+  "version": "1.0.0",
+  "description": "黄果官网：本站为隐藏入口站源，模块按实测 HTML/RSC 结构解析目录、详情与播放。",
+  "runtime": "js",
+  "api": 1,
+  "adult": true,
+  "hosts": [
+    "falpius.com"
+  ],
+  "capabilities": [
+    "cover"
+  ],
+  "allowEmptyCatalog": true,
+  "mainSha256": "4b860708e8e0bc1b74e1b2ef3cf7fe7360d57e763400c071fc8ed9ac0f8a2819",
+  "coverHosts": [
+    "d3n8qx4rvy4vol.cloudfront.net",
+    "zzzznnn.lkkwip.cn",
+    "falpius.com"
+  ]
+}
