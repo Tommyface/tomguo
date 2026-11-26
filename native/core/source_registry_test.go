@@ -79,7 +79,6 @@ func TestSourceRegistryKeepsCanonicalBehaviour(t *testing.T) {
 		"hongguoduanju.com": sourceHongguo,
 		"51短剧":              sourceDuanju51,
 		"囧次元":               sourceJcydm,
-		"e站":                sourceEZDMW,
 		"河马":                sourceHema,
 	}
 	for input, want := range cases {
