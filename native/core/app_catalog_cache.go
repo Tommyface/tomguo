@@ -31,7 +31,14 @@ type nativeCatalogDisk struct {
 	Recommendations map[string]nativeRecommendationState `json:"recommendations,omitempty"`
 }
 
+// loadCatalogCache 读取剧库缓存。
+//
+// 优先读按源分片（catalogs/<source>.json）；分片目录不存在时回落到旧的单文件
+// catalogs.json，保证升级后第一次启动不丢历史缓存。
 func (engine *nativeEngine) loadCatalogCache() {
+	if engine.loadCatalogShards() {
+		return
+	}
 	file, err := os.Open(filepath.Join(engine.directory, "catalogs.json"))
 	if err != nil {
 		return
@@ -112,7 +119,7 @@ func (engine *nativeEngine) cachedMany(sources []string) map[string]nativeCatalo
 		age := time.Since(state.UpdatedAt)
 		result := nativeCatalogResult{
 			Items: items, Page: max(1, state.Page), HasMore: !found || state.HasMore,
-			Fresh: len(items) > 0 && state.Warning == "" && !state.UpdatedAt.IsZero() && age >= 0 && age < nativeCatalogTTL,
+			Fresh:   len(items) > 0 && state.Warning == "" && !state.UpdatedAt.IsZero() && age >= 0 && age < nativeCatalogTTL,
 			Warning: state.Warning,
 		}
 		if engine.catalogSaveError != nil {
@@ -314,12 +321,9 @@ func (engine *nativeEngine) scheduleCatalogSaveLocked() {
 	engine.catalogSaveTimer = time.AfterFunc(nativeCatalogSaveDelay, func() {
 		engine.mu.Lock()
 		engine.catalogSaveTimer = nil
-		body, err := engine.marshalCatalogDiskLocked()
-		directory := engine.directory
+		// 分片落盘：每个源一个文件，源数据互不影响。
+		err := engine.saveCatalogShards(false)
 		engine.mu.Unlock()
-		if err == nil {
-			err = writeNativeCacheFile(filepath.Join(directory, "catalogs.json"), body)
-		}
 		engine.mu.Lock()
 		engine.catalogSaveError = nativeSaveError("剧库", err)
 		if err == nil {
@@ -353,10 +357,8 @@ func (engine *nativeEngine) marshalCatalogDiskLocked() ([]byte, error) {
 }
 
 func (engine *nativeEngine) writeCatalogDiskLocked() error {
-	body, err := engine.marshalCatalogDiskLocked()
-	if err == nil {
-		err = writeNativeCacheFile(filepath.Join(engine.directory, "catalogs.json"), body)
-	}
+	// force=true：切后台/退出前必须把当前状态完整写下去。
+	err := engine.saveCatalogShards(true)
 	engine.catalogSaveError = nativeSaveError("剧库", err)
 	if err == nil {
 		engine.finishCatalogSaveLocked()
@@ -405,4 +407,90 @@ func (engine *nativeEngine) saveDetailMetadata(drama nativeDrama) error {
 		return engine.writeCatalogDiskLocked()
 	}
 	return nil
+}
+
+// loadCatalogShards 从分片目录恢复剧库；返回 true 表示至少恢复了一个源。
+func (engine *nativeEngine) loadCatalogShards() bool {
+	directory := engine.directory
+	names := listCatalogShards(directory)
+	if len(names) == 0 {
+		return false
+	}
+	loaded := 0
+	for _, name := range names {
+		shard, ok := readCatalogShard(directory, name)
+		if !ok {
+			// 单个分片损坏只丢这个源，不影响其余源。
+			continue
+		}
+		source := canonicalProviderSource(shard.Source)
+		if source == "" {
+			continue
+		}
+		items := make([]nativeDrama, len(shard.Items))
+		for index, item := range shard.Items {
+			items[index] = migrateNativeDrama(item)
+		}
+		engine.catalogs[source] = items
+		engine.catalogStates[source] = shard.State
+		if len(shard.Categories) > 0 {
+			engine.categoryOptions[source] = shard.Categories
+		}
+		if shard.HongguoApp != nil {
+			engine.hongguoCatalog = cloneHongguoCatalogState(shard.HongguoApp)
+			if engine.downloader != nil {
+				engine.downloader.restoreHongguoCatalog(shard.HongguoApp)
+			}
+		}
+		loaded++
+	}
+	return loaded > 0
+}
+
+// saveCatalogShards 按源写分片，并更新索引。调用方必须持有 engine.mu。
+//
+// 只写「内容有变化」的源：分片文件按 source 命名，重写未变化的源没有意义，
+// 而且源越多写盘越慢。变化判定用 bytes 长度 + 状态时间戳，代价远低于序列化。
+func (engine *nativeEngine) saveCatalogShards(force bool) error {
+	directory := engine.directory
+	index := readCatalogShardIndex(directory)
+	updated := make(map[string]catalogShardMeta, len(engine.catalogs))
+	var firstErr error
+	for source, items := range engine.catalogs {
+		state := engine.catalogStates[source]
+		meta, seen := index.Shards[safeShardName(source)]
+		if !force && seen && meta.SavedAt.Equal(state.UpdatedAt) && meta.SavedAt.After(time.Time{}) {
+			updated[safeShardName(source)] = meta
+			continue
+		}
+		shard := catalogShard{
+			Source: source,
+			Items:  items,
+			State:  state,
+		}
+		if categories, ok := engine.categoryOptions[source]; ok {
+			shard.Categories = categories
+		}
+		if source == sourceHongguo && engine.hongguoCatalog != nil {
+			shard.HongguoApp = engine.hongguoCatalog
+		}
+		written, err := writeCatalogShard(directory, shard)
+		if err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		updated[safeShardName(source)] = written
+	}
+	if err := writeCatalogShardIndex(directory, updated); err != nil && firstErr == nil {
+		firstErr = err
+	}
+	// 清理长期不再更新的分片（例如源被删除后残留的目录）。
+	keep := make(map[string]bool, len(engine.catalogs))
+	for source := range engine.catalogs {
+		keep[safeShardName(source)] = true
+	}
+	pruneCatalogShards(directory, keep, 30*24*time.Hour)
+	return firstErr
 }
