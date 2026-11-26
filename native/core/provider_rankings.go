@@ -34,8 +34,6 @@ var rankingBoards = []rankingBoard{
 	{ID: "huangguo-hot", Source: sourceHuangguoAI, Name: "热播榜", Description: "黄果站点热播 TOP 20；每日更新。", path: "hot"},
 	{ID: "huangguo-recommend", Source: sourceHuangguoAI, Name: "推荐榜", Description: "黄果站点推荐 TOP 20。", path: "recommend"},
 	{ID: "huangguo-potential", Source: sourceHuangguoAI, Name: "潜力榜", Description: "黄果站点潜力 TOP 20。", path: "potential"},
-	{ID: "huangju-hot", Source: sourceHuangju, Name: "热门榜", Description: "剧果目录热门顺序，按源站返回顺序展示。"},
-	{ID: "huangju-new", Source: sourceHuangju, Name: "最新榜", Description: "剧果最新目录顺序，按源站返回顺序展示。", path: huangjuNewestCategory},
 	{ID: "yeguo-recommend", Source: sourceYeguo, Name: "目录榜", Description: "野果默认目录顺序，按源站返回顺序展示。"},
 	{ID: "dsd-catalog", Source: sourceDSD, Name: "目录榜", Description: "帝果分类目录聚合顺序，按源站返回顺序展示。"},
 	// 参考 zhenguojianTV v0.8.31：51短剧改版后的三张单页榜。
@@ -246,8 +244,6 @@ func (d *Downloader) fetchCatalogRankingPage(ctx context.Context, board rankingB
 	var more bool
 	var err error
 	switch board.Source {
-	case sourceHuangju:
-		items, more, err = d.fetchHuangjuCatalogPage(ctx, page, category, "")
 	case sourceYeguo:
 		items, more, err = d.fetchYeguoCatalogPage(ctx, page, category, "")
 	case sourceDSD:
