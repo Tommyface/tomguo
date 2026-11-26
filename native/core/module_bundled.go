@@ -38,8 +38,4 @@ var bundledModules = []moduleManifest{
 	{ID: sourceDuanju51, Name: "51短剧", Description: "短剧 · 全集合集", Runtime: moduleRuntimeBuiltin, Capabilities: []string{"search"}},
 	{ID: sourceHema, Name: "河马", Description: "短剧 · 全集合集", Runtime: moduleRuntimeBuiltin, Capabilities: []string{"search"}},
 	{ID: sourceEZDMW, Name: "E站", Description: "动漫 · 新番 · 完结", Runtime: moduleRuntimeBuiltin, Capabilities: []string{"search"}},
-	{ID: sourceHuaguo, Name: "花果", Description: "短剧 · 花生短剧", Runtime: moduleRuntimeBuiltin},
-	{ID: sourceWangguo, Name: "网果", Description: "短剧 · 短剧网", Runtime: moduleRuntimeBuiltin},
-	{ID: sourceFaguo, Name: "发果", Description: "短剧 · 168 影院", Runtime: moduleRuntimeBuiltin},
-	{ID: sourceWuguo, Name: "伍果", Description: "短剧 · 五五短剧", Runtime: moduleRuntimeBuiltin},
 }
