@@ -2,12 +2,10 @@ package core
 
 import (
 	"context"
-	"regexp"
 	"sort"
 	"strings"
 	"sync"
 	"time"
-	"unicode"
 )
 
 // 站源整合：把各站源各自的 Category 归一成统一的内容类型 contentKind。
@@ -59,29 +57,11 @@ const (
 	kindAIHuanlian = "ai_huanlian"
 )
 
-var aggregateNoise = regexp.MustCompile(`(?i)[（(\[【]?(全集|完整版|高清|HD|国语|粤语|短剧|免费|抢先|独家)[)）\]】]?`)
-
 // normalizeAggregateTitle 生成聚合键：去噪后缀、去标点空白、全角转半角、小写。
+// normalizeAggregateTitle 生成聚合键：三段式（剥噪 → 繁简/数字归一 → 字符过滤）。
+// 实现位于 aggregate_title.go，与 titlesMatch 共用同一套规则。
 func normalizeAggregateTitle(title string) string {
-	title = strings.TrimSpace(title)
-	title = strings.ToLower(title)
-	title = strings.Map(func(r rune) rune {
-		if r >= 0xFF01 && r <= 0xFF5E {
-			return r - 0xFEE0
-		}
-		if unicode.IsSpace(r) {
-			return -1
-		}
-		return r
-	}, title)
-	title = aggregateNoise.ReplaceAllString(title, "")
-	var builder strings.Builder
-	for _, r := range title {
-		if unicode.IsLetter(r) || unicode.IsDigit(r) {
-			builder.WriteRune(r)
-		}
-	}
-	return builder.String()
+	return aggregateTitleKey(title)
 }
 
 // inferContentKind 按优先级推断统一内容类型。
