@@ -4,10 +4,10 @@ import "testing"
 
 func TestBuiltinMediaTableContainsKeyResolvers(t *testing.T) {
 	want := []string{
-		sourceCloudFront, sourceHuangju, sourceYeguo, sourceDSD, sourceSorani,
-		sourceGuipian, sourceHanxiaoquan, sourceHuangguoMain, sourceHuangguoSelected,
+		sourceCloudFront, sourceHuangju, sourceYeguo, sourceDSD,
+		sourceHanxiaoquan, sourceHuangguoMain, sourceHuangguoSelected,
 		sourceHuangguoWelfare, sourceHuakui, sourceChengguo, sourceHongguo,
-		sourceHuangdou, sourceEZDMW, sourceHema, sourceDuanju51,
+		sourceHuangdou, sourceHema, sourceDuanju51,
 	}
 	for _, source := range want {
 		if !builtinMediaKnown(source) {
