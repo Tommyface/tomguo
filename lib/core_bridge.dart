@@ -728,6 +728,7 @@ class NativeRepository extends AppRepository {
         'prepareCover',
         'detail',
         'metadata',
+        'stream',
         'resolve',
         'preload',
         'prepareHandoff',
@@ -751,7 +752,9 @@ class NativeRepository extends AppRepository {
           }.contains(action)) {
         _downloadPermission();
       }
-      if (action == 'resolve' && access != null && !access!.canDownload) {
+      if ((action == 'resolve' || action == 'stream') &&
+          access != null &&
+          !access!.canDownload) {
         input['force'] = true;
       }
       final body = jsonEncode(input);
@@ -942,7 +945,7 @@ class NativeRepository extends AppRepository {
     bool sourcesTagged = false,
   }) async {
     final data = await _call({
-      'action': 'aggregateCatalog',
+      'action': 'aggregate',
       'sources': sources,
       'page': page,
       'contentKind': kind,
@@ -963,7 +966,8 @@ class NativeRepository extends AppRepository {
     bool sourcesTagged = false,
   }) async => AggregatePage.fromJson(
     await _call({
-      'action': 'aggregateCached',
+      'action': 'aggregate',
+      'mode': 'instant',
       'sources': sources,
       'contentKind': kind,
       'adultView': adultView,
@@ -978,7 +982,8 @@ class NativeRepository extends AppRepository {
     bool adultView = false,
   }) async {
     final data = await _call({
-      'action': 'aggregateSources',
+      'action': 'aggregate',
+      'stage': 'sources',
       'sources': sources,
       'query': item.title,
       'aggregateKey': item.key,
@@ -1088,7 +1093,8 @@ class NativeRepository extends AppRepository {
     int quality = 0,
   }) async => PlaybackPlan.fromJson(
     await _call({
-      'action': 'resolve',
+      'action': 'stream',
+      'stage': 'resolve',
       'drama': drama.toJson(),
       'chapter': episode.raw,
       'index': episode.number,
@@ -1100,7 +1106,8 @@ class NativeRepository extends AppRepository {
   Future<PlaybackPlan> fallback(PlaybackPlan current) async =>
       PlaybackPlan.fromJson(
         await _call({
-          'action': 'fallback',
+          'action': 'stream',
+          'stage': 'fallback',
           'session': current.session,
           'sequence': ++_playbackSequence,
         }),
@@ -1244,7 +1251,8 @@ class NativeRepository extends AppRepository {
     int quality = 0,
   }) async => PlaybackPlan.fromJson(
     await _call({
-      'action': 'resolve',
+      'action': 'stream',
+      'stage': 'resolve',
       'drama': drama.toJson(),
       'chapter': episode.raw,
       'index': episode.number,
