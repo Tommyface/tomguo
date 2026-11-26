@@ -1,0 +1,20 @@
+{
+  "id": "guipian",
+  "name": "鬼片网",
+  "version": "1.0.0",
+  "description": "鬼片网：分类页按 id 翻页卡片采集，详情取多个播放线路，播放页内嵌 m3u8 直链。搜索走站点 RSS 最新条目匹配。",
+  "runtime": "js",
+  "api": 1,
+  "adult": false,
+  "hosts": [
+    "guipianwu.com"
+  ],
+  "capabilities": [
+    "cover"
+  ],
+  "allowEmptyCatalog": true,
+  "mainSha256": "80ebbe29162973fdd5b90e1a5a1b9162029816029846e7c25ed2c2e53278f89d",
+  "coverHosts": [
+    "guipianwu.com"
+  ]
+}
