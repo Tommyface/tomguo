@@ -70,30 +70,6 @@ func buildHuangjuRanking(items []Drama, board rankingBoard, page int) (rankingPa
 	return result, nil
 }
 
-func buildDuanju51Ranking(items []Drama, board rankingBoard, page int) (rankingPage, error) {
-	if len(items) == 0 {
-		return rankingPage{}, fmt.Errorf("51短剧%s未返回内容，站点可能暂不可用", board.Name)
-	}
-	pageSize := 20
-	result := rankingPage{
-		Items:      make([]rankingItem, 0, len(items)),
-		HasMore:    len(items) >= pageSize,
-		TotalPages: page + 1,
-	}
-	seen := map[string]bool{}
-	for index, item := range items {
-		if seen[item.ID] {
-			continue
-		}
-		seen[item.ID] = true
-		rank := (page-1)*pageSize + index + 1
-		result.Items = append(result.Items, rankingItem{Rank: rank, Drama: item})
-	}
-	if len(result.Items) == 0 {
-		return rankingPage{}, errors.New("51短剧榜单条目全部无效")
-	}
-	return result, nil
-}
 
 // ---------------------------------------------------------------- E站新番榜
 
