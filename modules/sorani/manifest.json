@@ -1,0 +1,21 @@
+{
+  "id": "sorani",
+  "name": "青空次元",
+  "version": "1.0.0",
+  "description": "青空次元：JSON API 站源，TV番剧 / 剧场动画 / 特摄剧场三分类。播放需登录，模块如实返回登录提示。",
+  "runtime": "js",
+  "api": 1,
+  "adult": false,
+  "hosts": [
+    "api.sorani.cc",
+    "www.sorani.net"
+  ],
+  "capabilities": [
+    "cover"
+  ],
+  "allowEmptyCatalog": true,
+  "mainSha256": "232a17ef656edc63473de763146516b03a62872ecfdcb4c6ccb9ef569b311fc5",
+  "coverHosts": [
+    "img.sorani.net"
+  ]
+}
