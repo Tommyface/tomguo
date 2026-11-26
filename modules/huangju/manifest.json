@@ -1,0 +1,17 @@
+{
+  "id": "huangju",
+  "name": "剧果",
+  "version": "1.0.0",
+  "description": "剧果：迁移自内置实现。",
+  "runtime": "js",
+  "api": 1,
+  "adult": false,
+  "hosts": [
+    "www.huangju.net"
+  ],
+  "capabilities": [
+    "cover"
+  ],
+  "allowEmptyCatalog": true,
+  "mainSha256": "1e38d44f0b88615b238245e4af65cf75643272fe966e91a37a1d8f2b79360ffe"
+}
