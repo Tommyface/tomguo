@@ -52,8 +52,6 @@ func (d *Downloader) providerBaseURL(source string) string {
 		fallback = duanju51BaseURL
 	case sourceHema:
 		fallback = hemaSiteBaseURL
-	case sourceChengguo:
-		configured, fallback = d.cfg.ChengguoURL, chengguoBaseURL
 	case sourceHuangguoMain:
 		fallback = "https://falpius.com"
 	case sourceHuangguoSelected, sourceHuangguoWelfare:
@@ -107,8 +105,6 @@ func providerSourceForURL(raw string) string {
 		return sourceDuanju51
 	case host == "kuaikaw.cn" || host == "www.kuaikaw.cn":
 		return sourceHema
-	case host == "chengguodj.com" || host == "www.chengguodj.com" || host == "api2.chengguodj.com" || host == "12.cyjoifcwr.cc":
-		return sourceChengguo
 	case host == "huakui.net" || host == "www.huakui.net" || host == "huakui1.com" || host == "huakui2.com" || host == "huakui3.com":
 		return sourceHuakui
 	case host == "falpius.com" || host == "whmxun.com" || host == "hgdhy11.com":
@@ -184,9 +180,6 @@ func (d *Downloader) resolveProviderMedia(ctx context.Context, task Task) (provi
 	}
 	if chapter.Source == sourceHuangguoSelected || chapter.Source == sourceHuangguoWelfare {
 		return d.resolveHuangguoPortalMedia(ctx, task)
-	}
-	if chapter.Source == sourceChengguo {
-		return d.resolveChengguoMedia(ctx, task)
 	}
 	if strings.HasPrefix(chapter.VideoURL, "hongguo-cenc://") {
 		return d.resolveHongguoMedia(ctx, task)
