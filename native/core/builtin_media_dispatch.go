@@ -54,15 +54,6 @@ var builtinMediaTable = map[string]builtinMediaFunc{
 	},
 	sourceHuangguoSelected: huangguoPortalMedia(sourceHuangguoSelected),
 	sourceHuangguoWelfare:  huangguoPortalMedia(sourceHuangguoWelfare),
-	// 红果：只在 chapter 使用 cenc 占位协议时接管，其余情况回落到直连。
-	sourceHongguo: func(d *Downloader, ctx context.Context, chapter *Chapter, task Task, media *providerMedia) (bool, bool, error) {
-		if !strings.HasPrefix(chapter.VideoURL, "hongguo-cenc://") {
-			return false, false, nil
-		}
-		result, err := d.resolveHongguoMedia(ctx, task)
-		*media = result
-		return true, false, err
-	},
 	// 黄豆：详情只存集数，播放时按集号再问一次接口。
 	sourceHuangdou: func(d *Downloader, ctx context.Context, chapter *Chapter, task Task, media *providerMedia) (bool, bool, error) {
 		_, sourceID, valid := splitProviderDramaID(task.DramaID)
