@@ -22,7 +22,7 @@ var ipcFacadeActions = []string{"catalog", "detail", "stream", "aggregate"}
 // 每一条都应在后续阶段被门面取代；测试会锁住「只减不增」。
 var ipcInternalActions = []string{
 	// initialize 在分发表之前就被拦截（引擎启动握手），不参与 action switch。
-	"initialize", "lan", "registerCustomSources", "listCustomSources", "updateSystemProxy",
+	"initialize", "shadow", "lan", "registerCustomSources", "listCustomSources", "updateSystemProxy",
 	"resourceSettings", "saveResourceSettings", "controlDownloadBatch", "preload",
 	"prepareHandoff", "danmaku", "cancelRead", "recommendations",
 	"cachedRecommendations", "rankingBoards", "rankings", "suggestions",
