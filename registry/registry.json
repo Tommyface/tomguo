@@ -5,6 +5,28 @@
   "schema": 2,
   "plugins": [
     {
+      "id": "51duanju",
+      "name": "51短剧",
+      "version": "1.0.0",
+      "description": "51短剧：迁移自内置实现。",
+      "minApi": 0,
+      "adult": false,
+      "capabilities": [
+        "cover"
+      ],
+      "hosts": [
+        "www.51duanju.com"
+      ],
+      "mainSha256": "ed5a27698ee6bc7472764e19c10739e396d6085659fe3a03202b91605b7a6b1d",
+      "zip": "https://tommyfac.ccwu.cc/tomguo/51duanju-1.0.0.zip",
+      "size": 8328,
+      "available": true,
+      "state": "active",
+      "reason": "",
+      "minAppVersion": "",
+      "replacedBy": ""
+    },
+    {
       "id": "chengguo",
       "name": "橙果短剧",
       "version": "1.0.0",
@@ -110,6 +132,28 @@
       "mainSha256": "a3e558224ca0fe5bb28ecd0b3a08b27e796416b6582481d70e1765ee836c9866",
       "zip": "https://tommyfac.ccwu.cc/tomguo/hanxiaoquan-1.0.0.zip",
       "size": 10824,
+      "available": true,
+      "state": "active",
+      "reason": "",
+      "minAppVersion": "",
+      "replacedBy": ""
+    },
+    {
+      "id": "hema",
+      "name": "河马剧场",
+      "version": "1.0.0",
+      "description": "河马剧场：迁移自内置实现。",
+      "minApi": 0,
+      "adult": false,
+      "capabilities": [
+        "cover"
+      ],
+      "hosts": [
+        "www.kuaikaw.cn"
+      ],
+      "mainSha256": "8acaac6f47f2d6382f2010f8ec52b866aa9a05957f1e5bedacbb37f7b28d7895",
+      "zip": "https://tommyfac.ccwu.cc/tomguo/hema-1.0.0.zip",
+      "size": 7189,
       "available": true,
       "state": "active",
       "reason": "",
