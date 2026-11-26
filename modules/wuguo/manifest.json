@@ -1,0 +1,17 @@
+{
+  "id": "wuguo",
+  "name": "伍果",
+  "version": "1.0.0",
+  "description": "伍果短剧：MacCMS 模板站源，列表/详情/播放全链路采集。",
+  "runtime": "js",
+  "api": 1,
+  "adult": false,
+  "hosts": [
+    "www.duanju55.com"
+  ],
+  "capabilities": [
+    "cover"
+  ],
+  "allowEmptyCatalog": true,
+  "mainSha256": "44046e4274677836338ce9fcdaceaa7cbffeb99b082d4a8dad2c2b65b742d955"
+}
