@@ -810,48 +810,24 @@ func (engine *nativeEngine) nativeDetail(ctx context.Context, drama nativeDrama)
 	var raw Drama
 	var chapters []Chapter
 	var err error
-	switch source {
-	case sourceHuangguoAI:
-		raw, chapters, err = engine.downloader.fetchHuangguoAIDetail(ctx, sourceID)
-	case sourceHuangguoVideo:
-		raw, chapters, err = engine.downloader.fetchHuangguoVideoDetail(ctx, sourceID)
-	case sourceCloudFront:
-		raw, chapters, err = engine.downloader.fetchLegacyDetail(ctx, sourceID)
-	case sourceHuangju:
-		raw, chapters, err = engine.downloader.fetchHuangjuDetail(ctx, sourceID)
-	case sourceYeguo:
-		raw, chapters, err = engine.downloader.fetchYeguoDetail(ctx, sourceID)
-	case sourceDSD:
-		raw, chapters, err = engine.downloader.fetchDSDDetail(ctx, sourceID)
-	case sourceSorani:
-		raw, chapters, err = engine.downloader.fetchSoraniDetail(ctx, sourceID)
-	case sourceGuipian:
-		raw, chapters, err = engine.downloader.fetchGuipianDetail(ctx, sourceID)
-	case sourceHanxiaoquan:
-		raw, chapters, err = engine.downloader.fetchHanxiaoquanDetail(ctx, sourceID)
-	// 参考 zhenguojianTV v0.8.31 新增站源。
-	case sourceDuanju51:
-		raw, chapters, err = engine.downloader.fetchDuanju51Detail(ctx, sourceID)
-	case sourceEZDMW:
-		raw, chapters, err = engine.downloader.fetchEZDMWDetail(ctx, sourceID)
-	case sourceHema:
-		raw, chapters, err = engine.downloader.fetchHemaDetail(ctx, sourceID)
-	case sourceHuangguoMain:
-		raw, chapters, err = engine.downloader.fetchHuangguoWebDetail(ctx, sourceID)
-	case sourceHuangguoSelected, sourceHuangguoWelfare:
-		raw, chapters, err = engine.downloader.fetchHuangguoPortalDetail(ctx, source, sourceID)
-	case sourceHuakui:
-		raw, chapters, err = engine.downloader.fetchHuakuiDetail(ctx, sourceID)
-	case sourceChengguo:
-		raw, chapters, err = engine.downloader.fetchChengguoDetail(ctx, sourceID)
-	case sourceHuaguo, sourceWangguo, sourceFaguo, sourceWuguo, sourceMxdm, sourceJcydm:
-		raw, chapters, err = engine.downloader.fetchMaccmsDetail(ctx, source, sourceID)
-	default:
+	var enrichDrama func(d *Downloader, ctx context.Context, drama *nativeDrama)
+	var episodesFromRaw bool
+	if outcome, handled, dispatchErr := runBuiltinDetail(engine, engine.downloader, ctx, source, sourceID); handled {
+		title, raw, chapters = outcome.Title, outcome.Raw, outcome.Chapters
+		if outcome.Enrich != nil {
+			enrichDrama = outcome.Enrich
+		}
+		if outcome.EpisodesFromRaw {
+			episodesFromRaw = true
+		}
+		if dispatchErr != nil {
+			return nil, dispatchErr
+		}
+	} else {
+		// 表外源：运行时模块优先，其次运行时注入的自定义源，最后回落到旧版黄果取集。
 		if moduleSource(source) != nil {
 			raw, chapters, err = engine.downloader.moduleDetail(ctx, source, sourceID)
-			break
-		}
-		if isCustomSource(source) && engine.downloader.customSources != nil {
+		} else if isCustomSource(source) && engine.downloader.customSources != nil {
 			cfg, ok := engine.downloader.customSources.get(source)
 			if !ok {
 				return nil, errors.New("自定义站源配置已失效，请重新添加")
@@ -880,20 +856,11 @@ func (engine *nativeEngine) nativeDetail(ctx context.Context, drama nativeDrama)
 	if raw.ID == drama.ID {
 		drama = mergeNativeDrama(drama, nativeNormalize(raw))
 	}
-	if source == sourceHongguo {
-		raw := engine.downloader.hongguoCachedDrama(Drama{ID: drama.ID, Title: drama.Title, Source: source})
-		drama = mergeNativeDrama(drama, nativeNormalize(raw))
-	}
-	if source == sourceHuangdou {
-		if row, err := engine.downloader.huangdouDetail(ctx, sourceID); err == nil {
-			fresh := nativeNormalize(huangdouDramaFromMap(row))
-			if fresh.ID == drama.ID {
-				drama = mergeNativeDrama(drama, fresh)
-			}
-		}
+	if enrichDrama != nil {
+		enrichDrama(engine.downloader, ctx, &drama)
 	}
 	drama.Source, drama.SourceID, drama.Episodes = source, sourceID, len(chapters)
-	if source == sourceHuangju || source == sourceYeguo || source == sourceChengguo {
+	if episodesFromRaw {
 		drama.Episodes = max(drama.Episodes, nativeNormalize(raw).Episodes)
 	}
 	warning := ""
