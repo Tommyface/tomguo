@@ -64,9 +64,6 @@ var builtinCatalogTable = map[string]builtinCatalogFunc{
 		return d.fetchHuangguoAICatalogPage(ctx, page, category)
 	}),
 
-	sourceHuangju: simpleCatalog(func(d *Downloader, ctx context.Context, page int, category, query string) ([]Drama, bool, error) {
-		return d.fetchHuangjuCatalogPage(ctx, page, category, query)
-	}),
 
 	sourceYeguo: simpleCatalog(func(d *Downloader, ctx context.Context, page int, category, query string) ([]Drama, bool, error) {
 		return d.fetchYeguoCatalogPage(ctx, page, category, query)
@@ -76,17 +73,8 @@ var builtinCatalogTable = map[string]builtinCatalogFunc{
 		return d.fetchDSDCatalogPage(ctx, page, category, query)
 	}),
 
-	sourceHanxiaoquan: simpleCatalog(func(d *Downloader, ctx context.Context, page int, category, query string) ([]Drama, bool, error) {
-		return d.fetchHanxiaoquanCatalogPage(ctx, page, category, query)
-	}),
 
-	sourceDuanju51: simpleCatalog(func(d *Downloader, ctx context.Context, page int, category, query string) ([]Drama, bool, error) {
-		return d.fetchDuanju51CatalogPage(ctx, page, category, query)
-	}),
 
-	sourceHema: simpleCatalog(func(d *Downloader, ctx context.Context, page int, category, query string) ([]Drama, bool, error) {
-		return d.fetchHemaCatalogPage(ctx, page, category, query)
-	}),
 
 	// 黄果主站只有一页：翻页请求直接返回空，由 AllowEmptyCatalog 决定是否报错。
 	sourceHuangguoMain: func(engine *nativeEngine, d *Downloader, ctx context.Context, page int, category, query string) (builtinCatalogOutcome, error) {
