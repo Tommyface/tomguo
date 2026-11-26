@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -44,17 +45,11 @@ func (d *Downloader) providerBaseURL(source string) string {
 		configured, fallback = d.cfg.YeguoURL, yeguoBaseURL
 	case sourceDSD:
 		configured, fallback = d.cfg.DSDURL, dsdBaseURL
-	case sourceSorani:
-		configured, fallback = d.cfg.SoraniURL, soraniSiteBaseURL
-	case sourceGuipian:
-		configured, fallback = d.cfg.GuipianURL, guipianSiteBaseURL
 	case sourceHanxiaoquan:
 		configured, fallback = d.cfg.HanxiaoquanURL, hanxiaoquanSiteBaseURL
 	// 参考 zhenguojianTV v0.8.31 新增站源（无独立配置项，用内置 baseURL）。
 	case sourceDuanju51:
 		fallback = duanju51BaseURL
-	case sourceEZDMW:
-		fallback = ezdmwBaseURL
 	case sourceHema:
 		fallback = hemaSiteBaseURL
 	case sourceChengguo:
@@ -107,17 +102,11 @@ func providerSourceForURL(raw string) string {
 		return sourceYeguo
 	case host == "dsd.com.se" || host == "www.dsd.com.se":
 		return sourceDSD
-	case host == "sorani.net" || host == "www.sorani.net" || host == "api.sorani.cc" || host == "sorani.cc":
-		return sourceSorani
-	case host == "guipianwu.com" || host == "www.guipianwu.com":
-		return sourceGuipian
 	case host == "jennyhow.com" || host == "www.jennyhow.com":
 		return sourceHanxiaoquan
 	// 参考 zhenguojianTV v0.8.31 新增站源。
 	case duanju51MirrorHost(host):
 		return sourceDuanju51
-	case ezdmwMirrorHost(host):
-		return sourceEZDMW
 	case host == "kuaikaw.cn" || host == "www.kuaikaw.cn":
 		return sourceHema
 	case host == "chengguodj.com" || host == "www.chengguodj.com" || host == "api2.chengguodj.com" || host == "12.cyjoifcwr.cc":
@@ -173,46 +162,41 @@ func (d *Downloader) resolveProviderMedia(ctx context.Context, task Task) (provi
 	if chapter.Source == "" {
 		chapter.Source = sourceFromDramaID(task.DramaID)
 	}
+	// 已安装的 JS 站源模块优先，内置实现作兜底。
 	if moduleSource(chapter.Source) != nil {
 		return d.moduleResolveMedia(ctx, chapter.Source, task)
 	}
-
-	var media providerMedia
-	if resolver, ok := builtinMediaTable[chapter.Source]; ok {
-		handled, workerDone, err := resolver(d, ctx, &chapter, task, &media)
-		if err != nil {
-			return providerMedia{}, err
-		}
-		if handled {
-			if workerDone {
-				return media, nil
-			}
-			return d.finishProviderMedia(ctx, chapter, task, media)
-		}
+	if chapter.Source == sourceCloudFront {
+		return d.resolveLegacyMedia(ctx, task)
 	}
-	if isCustomSource(chapter.Source) && d.customSources != nil {
-		if _, ok := d.customSources.get(chapter.Source); !ok {
-			return providerMedia{}, fmt.Errorf("自定义站源配置已失效，请重新添加")
-		}
-		if strings.HasPrefix(chapter.VideoURL, customAESPlayScheme) {
-			result, err := d.resolveCustomAESPlayback(ctx, task)
-			if err != nil {
-				return providerMedia{}, err
-			}
-			return d.finishProviderMedia(ctx, chapter, task, result)
-		}
+	if chapter.Source == sourceHuangju {
+		return d.resolveHuangjuMedia(ctx, task)
 	}
-	if strings.HasPrefix(chapter.VideoURL, "maccms-play://") {
-		if _, found := d.maccmsProfileForDynamic(chapter.Source); found {
-			result, err := d.resolveMaccmsPlayback(ctx, task)
-			if err != nil {
-				return providerMedia{}, err
-			}
-			return d.finishProviderMedia(ctx, chapter, task, result)
-		}
+	if chapter.Source == sourceYeguo {
+		return d.resolveYeguoMedia(ctx, task)
 	}
-
-	if refreshStaleChapterSources[chapter.Source] && chapter.PageURL == "" {
+	if chapter.Source == sourceDSD {
+		return d.resolveDSDMedia(ctx, task)
+	}
+	if chapter.Source == sourceHanxiaoquan {
+		return d.resolveHanxiaoquanMedia(ctx, task)
+	}
+	if chapter.Source == sourceHuangguoMain {
+		return d.resolveHuangguoWebMedia(ctx, task)
+	}
+	if chapter.Source == sourceHuangguoSelected || chapter.Source == sourceHuangguoWelfare {
+		return d.resolveHuangguoPortalMedia(ctx, task)
+	}
+	if chapter.Source == sourceHuakui {
+		return d.resolveHuakuiMedia(ctx, task)
+	}
+	if chapter.Source == sourceChengguo {
+		return d.resolveChengguoMedia(ctx, task)
+	}
+	if strings.HasPrefix(chapter.VideoURL, "hongguo-cenc://") {
+		return d.resolveHongguoMedia(ctx, task)
+	}
+	if chapter.PageURL == "" && (chapter.Source == sourceHuangguoAI || chapter.Source == sourceHuangguoVideo) {
 		if source, sourceID, valid := splitProviderDramaID(task.DramaID); valid {
 			_, chapters, err := d.GetHuangguoChapters(ctx, source, sourceID)
 			if err != nil {
@@ -231,11 +215,62 @@ func (d *Downloader) resolveProviderMedia(ctx context.Context, task Task) (provi
 			}
 		}
 	}
-
-	media = providerMedia{URL: chapter.VideoURL, Referer: firstNonEmpty(chapter.Referer, d.providerBaseURL(chapter.Source)+"/")}
-
+	media := providerMedia{URL: chapter.VideoURL, Referer: firstNonEmpty(chapter.Referer, d.providerBaseURL(chapter.Source)+"/")}
+	// 以下为参考 zhenguojianTV v0.8.31 新增站源的按需播放解析：
+	// 这些源详情里只存占位地址，播放时需再抓一次页面换新地址。
+	if chapter.Source == sourceHema && strings.HasPrefix(chapter.VideoURL, "hema-play://") {
+		var err error
+		media, err = d.resolveHemaMedia(ctx, task)
+		if err != nil {
+			return providerMedia{}, err
+		}
+	}
+	if strings.HasPrefix(chapter.VideoURL, "maccms-play://") {
+		if _, found := d.maccmsProfileForDynamic(chapter.Source); found {
+			var err error
+			media, err = d.resolveMaccmsPlayback(ctx, task)
+			if err != nil {
+				return providerMedia{}, err
+			}
+		}
+	}
+	if strings.HasPrefix(chapter.VideoURL, customAESPlayScheme) {
+		var err error
+		media, err = d.resolveCustomAESPlayback(ctx, task)
+		if err != nil {
+			return providerMedia{}, err
+		}
+	}
+	// 51短剧（参考 zhenguojianTV v0.8.31）：改版后每集 m3u8 带时效 auth_key，
+	// 详情只存占位地址，播放时按集抓页面换新地址；过期的裸 m3u8 同样按需解析。
+	if chapter.Source == sourceDuanju51 &&
+		(strings.HasPrefix(chapter.VideoURL, duanju51PlayScheme) ||
+			(isProviderHTTPMediaURL(chapter.VideoURL) && strings.Contains(chapter.VideoURL, "auth_key="))) {
+		var err error
+		media, err = d.resolveDuanju51Playback(ctx, task)
+		if err != nil {
+			return providerMedia{}, err
+		}
+	}
+	if chapter.Source == sourceHuangdou {
+		_, sourceID, valid := splitProviderDramaID(task.DramaID)
+		if valid {
+			sequence, err := strconv.Atoi(chapter.EpisodeString(task.Index))
+			if err != nil || sequence < 1 {
+				return providerMedia{}, fmt.Errorf("黄豆集数无效")
+			}
+			client := newHuangdouAPIClient(d)
+			media, err = d.resolveHuangdouPlayback(ctx, client, sourceID, sequence)
+			if err != nil {
+				return providerMedia{}, err
+			}
+			media.Referer = client.host + "/home"
+		}
+	}
+	// 黄果官方站在大陆被 DNS 污染，抓页面必然超时（每次白等 25 秒）。
+	// 有 Worker 时直接走 Worker，跳过这段。
 	workerDone := false
-	if huangguoWorkerSources[chapter.Source] {
+	if chapter.Source == sourceHuangguoAI || chapter.Source == sourceHuangguoVideo || chapter.Source == sourceHuangguoMain {
 		if _, sourceID, ok := splitProviderDramaID(task.DramaID); ok {
 			workerCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
 			if workerMedia, workerErr := d.resolveHuangguoWorkerPlayback(workerCtx, sourceID, huangguoWorkerSequence(chapter, task.Index)); workerErr == nil {
@@ -245,8 +280,7 @@ func (d *Downloader) resolveProviderMedia(ctx context.Context, task Task) (provi
 			cancel()
 		}
 	}
-
-	if !workerDone && refreshStaleChapterSources[chapter.Source] && chapter.PageURL != "" {
+	if !workerDone && chapter.PageURL != "" && (chapter.Source == sourceHuangguoAI || chapter.Source == sourceHuangguoVideo) {
 		responses := &playbackResponseURLs{}
 		pageContext := context.WithValue(ctx, playbackResponseURLsKey{}, responses)
 		body, err := d.fetchProviderText(pageContext, chapter.PageURL, media.Referer)
@@ -257,14 +291,18 @@ func (d *Downloader) resolveProviderMedia(ctx context.Context, task Task) (provi
 		if actual, ok := responses.values.Load(chapter.PageURL); ok {
 			pageURL = actual.(string)
 		}
-		if parseMediaFromPage[chapter.Source] != nil {
-			media.URL = parseMediaFromPage[chapter.Source](body, pageURL)
+		if chapter.Source == sourceHuangguoAI {
+			media.URL = parseAIVideoURL(body, pageURL)
+		} else {
+			media.URL = parseDataHLS(body, pageURL)
 		}
 		media.Referer = pageURL
 	}
-
-	if !workerDone && !isProviderHTTPMediaURL(media.URL) && huangguoWorkerSources[chapter.Source] {
+	// 内置黄果站源直连失败时，改用 Worker 反代取该集流（任意一集都能取）。
+	if !workerDone && !isProviderHTTPMediaURL(media.URL) &&
+		(chapter.Source == sourceHuangguoAI || chapter.Source == sourceHuangguoVideo || chapter.Source == sourceHuangguoMain) {
 		if _, sourceID, ok := splitProviderDramaID(task.DramaID); ok {
+			// 前面抓页面可能已经把 ctx 拖到超时，兜底要独立预算，否则必然失败。
 			workerCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 25*time.Second)
 			workerMedia, workerErr := d.resolveHuangguoWorkerPlayback(workerCtx, sourceID, huangguoWorkerSequence(chapter, task.Index))
 			cancel()
@@ -275,16 +313,11 @@ func (d *Downloader) resolveProviderMedia(ctx context.Context, task Task) (provi
 			}
 		}
 	}
-
-	return d.finishProviderMedia(ctx, chapter, task, media)
-}
-
-func (d *Downloader) finishProviderMedia(ctx context.Context, chapter Chapter, task Task, media providerMedia) (providerMedia, error) {
 	if !isProviderHTTPMediaURL(media.URL) {
 		return providerMedia{}, fmt.Errorf("%s 未返回有效播放地址，请刷新章节或确认站点访问权限", chapter.Source)
 	}
 	parsed, _ := url.Parse(media.URL)
-	if strings.HasSuffix(strings.ToLower(parsed.Path), ".m3u8") || (chapterNeedsPlaylistProbe[chapter.Source] && ezdmwPlaylistURL(media.URL)) {
+	if strings.HasSuffix(strings.ToLower(parsed.Path), ".m3u8") || (chapter.Source == sourceEZDMW && isListresPlaylist(media.URL)) {
 		playlist, finalURL, err := d.fetchMediaPlaylist(ctx, media.URL, media.Referer)
 		if err != nil {
 			return providerMedia{}, fmt.Errorf("获取播放列表失败: %w", err)
@@ -296,6 +329,7 @@ func (d *Downloader) finishProviderMedia(ctx context.Context, chapter Chapter, t
 		if stats.Duration > 0 {
 			media.Duration = stats.Duration
 		}
+		// 完整性提示：疑似预览/占位片段仅记录诊断，不拦截播放、不改变行为。
 		if looksLikePreviewFragment(stats) {
 			d.recordDiagnostic(diagnosticEvent{
 				Event:   "playlist_preview_suspected",
