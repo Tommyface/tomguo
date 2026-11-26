@@ -43,14 +43,6 @@ var builtinSourceSpecs = []sourceSpec{
 		Aliases: []string{"河马", "河马短剧", "www.kuaikaw.cn", "kuaikaw.cn"}},
 	{ID: sourceHuangguoMain, Name: "黄果主站", Adults: true, Capabilities: capsAll,
 		Aliases: []string{"黄果主站", "falpius.com", "whmxun.com"}},
-	{ID: sourceHuaguo, Name: "花果", Capabilities: capsAll,
-		Aliases: []string{"花果", "花生", "www.zywest263.com", "zywest263.com"}},
-	{ID: sourceWangguo, Name: "网果", Capabilities: capsAll,
-		Aliases: []string{"网果", "短剧网", "www.duanju2.com", "duanju2.com"}},
-	{ID: sourceFaguo, Name: "发果", Capabilities: capsAll,
-		Aliases: []string{"发果", "168影院", "www.xzyx168.com", "xzyx168.com"}},
-	{ID: sourceWuguo, Name: "伍果", Capabilities: capsAll,
-		Aliases: []string{"伍果", "五五", "www.duanju55.com", "duanju55.com"}},
 }
 
 var capsAll = []string{"catalog", "detail", "stream", "search"}
