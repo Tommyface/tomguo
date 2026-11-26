@@ -88,12 +88,6 @@ func (d *Downloader) crossSourceSearch(ctx context.Context, source, query string
 	case sourceDSD:
 		items, _, err := d.fetchDSDCatalogPage(ctx, 1, "", query)
 		return items, err
-	case sourceHongguo:
-		entry, err := d.searchHongguoDramas(ctx, query)
-		if err != nil {
-			return nil, err
-		}
-		return entry.Dramas, nil
 	default:
 		// 已安装的 JS 站源模块。
 		if moduleSource(source) != nil {
