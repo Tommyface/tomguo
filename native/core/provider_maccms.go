@@ -33,10 +33,6 @@ import (
 // 加新站必须一站一站验，不能批量上架。
 
 const (
-	sourceHuaguo  = "huaguo"
-	sourceWangguo = "wangguo"
-	sourceFaguo   = "faguo"
-	sourceWuguo   = "wuguo"
 
 	// 0.8.25：两个动漫番剧站（用户要求接入，实测列表/详情/播放全通）。
 	//
@@ -46,10 +42,6 @@ const (
 )
 
 var (
-	huaguoBaseURL  = "https://www.zywest263.com"
-	wangguoBaseURL = "https://www.duanju2.com"
-	faguoBaseURL   = "https://www.xzyx168.com"
-	wuguoBaseURL   = "https://www.duanju55.com"
 
 
 	maccmsNumericID = regexp.MustCompile(`^[0-9]{1,12}$`)
@@ -104,96 +96,7 @@ type maccmsProfile struct {
 	SearchURL func(base, query string, page int) string
 }
 
-var maccmsProfiles = map[string]maccmsProfile{
-	sourceHuaguo: {
-		Source:     sourceHuaguo,
-		Name:       "花果",
-		Base:       huaguoBaseURL,
-		DetailPath: regexp.MustCompile(`(?i)^/zywview/([0-9]+)\.html$`),
-		PlayPath:   regexp.MustCompile(`(?i)^/zywplay/[0-9]+-[0-9]+-[0-9]+\.html$`),
-		DetailURL: func(base, id string) string {
-			return base + "/zywview/" + id + ".html"
-		},
-		ListURL: func(base string, page int) string {
-			// 27 = 短剧分类；第 2 页起是 /zywtype/27-2.html。
-			if page <= 1 {
-				return base + "/zywtype/27.html"
-			}
-			return base + "/zywtype/27-" + strconv.Itoa(page) + ".html"
-		},
-		SearchURL: func(base, query string, page int) string {
-			// 这个模板的搜索**不认 page 参数**（实测 page=2 返回"第0页"空结果），
-			// 所以只给第一页，翻页交给"本地缓存 + 提示换关键词"。
-			if page > 1 {
-				return ""
-			}
-			return base + "/search.html?searchtype=1&searchword=" + url.QueryEscape(query)
-		},
-	},
-	sourceWangguo: {
-		Source: sourceWangguo,
-		Name:   "网果",
-		Base:   wangguoBaseURL, DetailPath: regexp.MustCompile(`(?i)^/vod/([0-9]+)\.html$`),
-		PlayPath: regexp.MustCompile(`(?i)^/play/[0-9]+-[0-9]+-[0-9]+\.html$`),
-		DetailURL: func(base, id string) string {
-			return base + "/vod/" + id + ".html"
-		},
-		ListURL: func(base string, page int) string {
-			if page <= 1 {
-				return base + "/type/duanju.html"
-			}
-			return base + "/type/duanju/page/" + strconv.Itoa(page) + ".html"
-		},
-		// 网果的 /search/ 一律返回"安全验证"页（带 cookie 也一样），
-		// 与其给用户一个必然失败的入口，不如退回本地缓存搜索。
-		SearchURL: nil,
-	},
-	sourceFaguo: {
-		Source:     sourceFaguo,
-		Name:       "发果",
-		Base:       faguoBaseURL,
-		DetailPath: regexp.MustCompile(`(?i)^/xzyxvd/([0-9]+)\.html$`),
-		PlayPath:   regexp.MustCompile(`(?i)^/xzyxvp/[0-9]+n[0-9]+m[0-9]+\.html$`),
-		DetailURL: func(base, id string) string {
-			return base + "/xzyxvd/" + id + ".html"
-		},
-		ListURL: func(base string, page int) string {
-			// 发果的短剧分类只有一页（实测整页 42 部，没有分页器）。
-			if page > 1 {
-				return ""
-			}
-			return base + "/xzyxvt/duanjun.html"
-		},
-		SearchURL: func(base, query string, page int) string {
-			if page < 1 {
-				page = 1
-			}
-			return base + "/xzyxvc/" + url.PathEscape(query) + "-wdyswzqun" + strconv.Itoa(page) + "num.html"
-		},
-	},
-	sourceWuguo: {
-		Source:     sourceWuguo,
-		Name:       "伍果",
-		Base:       wuguoBaseURL,
-		DetailPath: regexp.MustCompile(`(?i)^/index\.php/vod/detail/id/([0-9]+)\.html$`),
-		PlayPath:   regexp.MustCompile(`(?i)^/index\.php/vod/play/id/[0-9]+/sid/[0-9]+/nid/[0-9]+\.html$`),
-		DetailURL: func(base, id string) string {
-			return base + "/index.php/vod/detail/id/" + id + ".html"
-		},
-		ListURL: func(base string, page int) string {
-			if page <= 1 {
-				return base + "/index.php/vod/type/id/1.html"
-			}
-			return base + "/index.php/vod/type/id/1/page/" + strconv.Itoa(page) + ".html"
-		},
-		SearchURL: func(base, query string, page int) string {
-			if page < 1 {
-				page = 1
-			}
-			return base + "/index.php/vod/search.html?wd=" + url.QueryEscape(query) + "&page=" + strconv.Itoa(page)
-		},
-	},
-}
+var maccmsProfiles = map[string]maccmsProfile{}
 
 func maccmsProfileFor(source string) (maccmsProfile, bool) {
 	profile, found := maccmsProfiles[canonicalProviderSource(source)]
