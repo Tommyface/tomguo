@@ -1,0 +1,17 @@
+{
+  "id": "wangguo",
+  "name": "网果",
+  "version": "1.0.0",
+  "description": "网果短剧：MacCMS 模板站源，列表/详情/播放全链路采集。",
+  "runtime": "js",
+  "api": 1,
+  "adult": false,
+  "hosts": [
+    "www.duanju2.com"
+  ],
+  "capabilities": [
+    "cover"
+  ],
+  "allowEmptyCatalog": true,
+  "mainSha256": "eb791fb9315a64b1e44052819b8d2bada0089db96c95880cf1c1b9ed085af396"
+}
