@@ -124,10 +124,6 @@ var builtinCatalogTable = map[string]builtinCatalogFunc{
 		return d.fetchHemaCatalogPage(ctx, page, category, query)
 	}),
 
-	sourceChengguo: simpleCatalog(func(d *Downloader, ctx context.Context, page int, category, query string) ([]Drama, bool, error) {
-		return d.fetchChengguoCatalogPage(ctx, page, category, query)
-	}),
-
 	// 黄果主站只有一页：翻页请求直接返回空，由 AllowEmptyCatalog 决定是否报错。
 	sourceHuangguoMain: func(engine *nativeEngine, d *Downloader, ctx context.Context, page int, category, query string) (builtinCatalogOutcome, error) {
 		if page > 1 || query != "" {
