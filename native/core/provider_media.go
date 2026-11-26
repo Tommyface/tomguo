@@ -54,14 +54,6 @@ func (d *Downloader) providerBaseURL(source string) string {
 		fallback = "https://falpius.com"
 	case sourceHuangguoSelected, sourceHuangguoWelfare:
 		fallback = portalOrigin(source)
-	case sourceHuaguo:
-		fallback = huaguoBaseURL
-	case sourceWangguo:
-		fallback = wangguoBaseURL
-	case sourceFaguo:
-		fallback = faguoBaseURL
-	case sourceWuguo:
-		fallback = wuguoBaseURL
 	default:
 		fallback = "https://d2pypzndaqisk.cloudfront.net"
 	}
