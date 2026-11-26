@@ -48,15 +48,6 @@ func maccmsDetail(source string) builtinDetailFunc {
 
 // builtinDetailTable 是内置源详情抓取的唯一分发表，与 builtinCatalogTable 一一对应。
 var builtinDetailTable = map[string]builtinDetailFunc{
-	sourceHongguo: func(engine *nativeEngine, d *Downloader, ctx context.Context, source, sourceID string) (builtinDetailOutcome, error) {
-		title, chapters, err := d.GetHuangguoChapters(ctx, source, sourceID)
-		out := builtinDetailOutcome{Title: title, Chapters: chapters}
-		out.Enrich = func(d *Downloader, ctx context.Context, drama *nativeDrama) {
-			cached := d.hongguoCachedDrama(Drama{ID: drama.ID, Title: drama.Title, Source: sourceHongguo})
-			*drama = mergeNativeDrama(*drama, nativeNormalize(cached))
-		}
-		return out, err
-	},
 
 	sourceHuangdou: func(engine *nativeEngine, d *Downloader, ctx context.Context, source, sourceID string) (builtinDetailOutcome, error) {
 		title, chapters, err := d.GetHuangguoChapters(ctx, source, sourceID)
