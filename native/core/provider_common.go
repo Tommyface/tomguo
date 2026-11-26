@@ -2367,17 +2367,11 @@ func (d *Downloader) GetHuangguoChapters(ctx context.Context, source, sourceID s
 	switch canonicalProviderSource(source) {
 	case sourceHuangdou:
 		return d.fetchHuangdouChapters(ctx, sourceID)
-	case sourceHuangju:
-		drama, chapters, err := d.fetchHuangjuDetail(ctx, sourceID)
-		return drama.DisplayTitle(), chapters, err
 	case sourceYeguo:
 		drama, chapters, err := d.fetchYeguoDetail(ctx, sourceID)
 		return drama.DisplayTitle(), chapters, err
 	case sourceDSD:
 		drama, chapters, err := d.fetchDSDDetail(ctx, sourceID)
-		return drama.DisplayTitle(), chapters, err
-	case sourceHanxiaoquan:
-		drama, chapters, err := d.fetchHanxiaoquanDetail(ctx, sourceID)
 		return drama.DisplayTitle(), chapters, err
 	case sourceHuangguoMain:
 		drama, chapters, err := d.fetchHuangguoWebDetail(ctx, sourceID)
@@ -2394,4 +2388,22 @@ func (d *Downloader) GetHuangguoChapters(ctx context.Context, source, sourceID s
 		}
 		return "", nil, fmt.Errorf("unsupported provider source: %s", source)
 	}
+}
+
+// 51短剧镜像主机判定：媒体代理用它决定 Referer（源已迁移为 zip 模块，此处只保留主机表）。
+var duanju51BaseMirrors = []string{
+	"https://blue.xdrgcewe.cc",
+}
+
+func duanju51MirrorHost(host string) bool {
+	host = strings.ToLower(strings.TrimSpace(host))
+	if host == "" {
+		return false
+	}
+	for _, origin := range duanju51BaseMirrors {
+		if strings.TrimPrefix(strings.ToLower(origin), "https://") == host {
+			return true
+		}
+	}
+	return false
 }
