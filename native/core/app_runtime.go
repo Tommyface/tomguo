@@ -63,8 +63,6 @@ type Downloader struct {
 	huangju               *huangjuAPIClient
 	yeguoOnce             sync.Once
 	yeguo                 *yeguoAPIClient
-	soraniOnce            sync.Once
-	sorani                *soraniAPIClient
 	dsdCatalog            dsdCatalogState
 	diagnostics           *diagnosticLog
 	apiMu                 sync.Mutex
@@ -812,8 +810,8 @@ func (engine *nativeEngine) nativeCatalog(ctx context.Context, input nativeInput
 		return result, err
 	}
 	if len(items) == 0 && page == 1 && !isCustomSource(source) &&
-		source != sourceHuangju && source != sourceYeguo && source != sourceDSD && source != sourceSorani && source != sourceGuipian && source != sourceHanxiaoquan &&
-		source != sourceDuanju51 && source != sourceEZDMW && source != sourceHema && source != sourceChengguo && source != sourceHuakui && source != sourceHuangguoMain && source != sourceHuangguoSelected && source != sourceHuangguoWelfare && source != sourceHuaguo && source != sourceWangguo && source != sourceFaguo && source != sourceWuguo && source != sourceMxdm && source != sourceJcydm {
+		source != sourceHuangju && source != sourceYeguo && source != sourceDSD && source != sourceHanxiaoquan &&
+		source != sourceDuanju51 && source != sourceHema && source != sourceChengguo && source != sourceHuakui && source != sourceHuangguoMain && source != sourceHuangguoSelected && source != sourceHuangguoWelfare && source != sourceHuaguo && source != sourceWangguo && source != sourceFaguo && source != sourceWuguo && source != sourceMxdm && source != sourceJcydm {
 		return result, errors.New("站源暂未返回剧集，请稍后刷新")
 	}
 	if err != nil {
