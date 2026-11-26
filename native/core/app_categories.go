@@ -72,8 +72,6 @@ func validNativeCategory(source, category string) bool {
 		return validHemaCategory(category)
 	case sourceChengguo:
 		return category == "" || validChengguoID(category)
-	case sourceHuakui:
-		return category == "" || validHuakuiID(category)
 	case sourceHuangguoMain, sourceHuangguoSelected, sourceHuangguoWelfare:
 		return category == ""
 	case sourceHuaguo, sourceWangguo, sourceFaguo, sourceWuguo, sourceMxdm, sourceJcydm:
@@ -145,12 +143,6 @@ func (engine *nativeEngine) nativeCategories(ctx context.Context, source string,
 		}
 	case sourceHanxiaoquan:
 		all = append(all, d.fetchHanxiaoquanCategories()...)
-	case sourceHuakui:
-		var categories []nativeCategory
-		categories, err = d.fetchHuakuiCategories(ctx)
-		if err == nil {
-			all = append(all, categories...)
-		}
 	case sourceChengguo:
 		var categories []nativeCategory
 		categories, err = d.fetchChengguoCategories(ctx)
