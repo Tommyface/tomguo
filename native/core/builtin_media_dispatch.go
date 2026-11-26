@@ -54,11 +54,6 @@ var builtinMediaTable = map[string]builtinMediaFunc{
 	},
 	sourceHuangguoSelected: huangguoPortalMedia(sourceHuangguoSelected),
 	sourceHuangguoWelfare:  huangguoPortalMedia(sourceHuangguoWelfare),
-	sourceChengguo: func(d *Downloader, ctx context.Context, chapter *Chapter, task Task, media *providerMedia) (bool, bool, error) {
-		result, err := d.resolveChengguoMedia(ctx, task)
-		*media = result
-		return true, false, err
-	},
 	// 红果：只在 chapter 使用 cenc 占位协议时接管，其余情况回落到直连。
 	sourceHongguo: func(d *Downloader, ctx context.Context, chapter *Chapter, task Task, media *providerMedia) (bool, bool, error) {
 		if !strings.HasPrefix(chapter.VideoURL, "hongguo-cenc://") {
