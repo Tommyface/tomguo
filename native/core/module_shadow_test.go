@@ -21,10 +21,8 @@ func TestShadowModeSwitch(t *testing.T) {
 }
 
 func TestShadowModesOrdered(t *testing.T) {
+	// 内置源已清零，影子清单允许为空；非空时必须有序。
 	ids := shadowModesOrdered()
-	if len(ids) == 0 {
-		t.Fatal("expected builtin source IDs")
-	}
 	for i := 1; i < len(ids); i++ {
 		if ids[i-1] > ids[i] {
 			t.Fatalf("not sorted: %q > %q", ids[i-1], ids[i])
