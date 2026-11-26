@@ -32,7 +32,7 @@ func TestCatalogShardRoundTrip(t *testing.T) {
 
 func TestCatalogShardCorruptionIsolated(t *testing.T) {
 	dir := t.TempDir()
-	for _, source := range []string{sourceHongguo, sourceHuangju} {
+	for _, source := range []string{sourceHongguo, sourceHuangdou} {
 		if _, err := writeCatalogShard(dir, catalogShard{
 			Source: source,
 			Items:  []nativeDrama{{ID: source + ":1", Title: "剧", Source: source}},
@@ -42,11 +42,11 @@ func TestCatalogShardCorruptionIsolated(t *testing.T) {
 		}
 	}
 	// 破坏其中一个分片：另一个必须仍可读。
-	broken := catalogShardPath(dir, sourceHuangju)
+	broken := catalogShardPath(dir, sourceHuangdou)
 	if err := os.WriteFile(broken, []byte("{not json"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := readCatalogShard(dir, sourceHuangju); ok {
+	if _, ok := readCatalogShard(dir, sourceHuangdou); ok {
 		t.Fatal("损坏分片不应解析成功")
 	}
 	if _, ok := readCatalogShard(dir, sourceHongguo); !ok {
