@@ -20,7 +20,6 @@
     "provider_hongguo_search_seasons.go",
     "provider_hongguo_sign.go",
     "provider_hongguo_suggestions.go",
-    "provider_huakui.go",
     "provider_huangdou.go",
     "provider_huangdou_detail.go",
     "provider_huangdou_vip.go",
