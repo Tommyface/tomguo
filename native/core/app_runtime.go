@@ -811,7 +811,7 @@ func (engine *nativeEngine) nativeCatalog(ctx context.Context, input nativeInput
 	}
 	if len(items) == 0 && page == 1 && !isCustomSource(source) &&
 		source != sourceHuangju && source != sourceYeguo && source != sourceDSD && source != sourceHanxiaoquan &&
-		source != sourceDuanju51 && source != sourceHema && source != sourceHuangguoMain && source != sourceHuangguoSelected && source != sourceHuangguoWelfare && source != sourceHuaguo && source != sourceWangguo && source != sourceFaguo && source != sourceWuguo {
+		source != sourceDuanju51 && source != sourceHema && source != sourceHuangguoMain && source != sourceHuangguoSelected && source != sourceHuangguoWelfare {
 		return result, errors.New("站源暂未返回剧集，请稍后刷新")
 	}
 	if err != nil {
