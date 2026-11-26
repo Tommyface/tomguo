@@ -138,7 +138,11 @@ type nativeInput struct {
 	//   refresh  缓存优先，缺失或过期时才联网
 	//   force    强制联网（用户明确要求）
 	// 空值等价于 refresh，保持旧调用的行为。
-	Mode          string `json:"mode"`
+	Mode string `json:"mode"`
+	// Stage 是门面动作内部的子阶段，用于把多个旧 action 收进一个入口：
+	//   stream: resolve | fallback
+	//   aggregate: page | sources
+	Stage         string `json:"stage"`
 	SourcesTagged bool   `json:"sourcesTagged"`
 	CachedOnly    bool   `json:"cachedOnly"`
 }
@@ -585,6 +589,33 @@ func nativeDispatch(input nativeInput) (any, error) {
 		return map[string]any{"ok": true}, nil
 	case "syncCatalogSnapshot":
 		return engine.nativeSyncCatalogSnapshot(ctx, input.Sources)
+	// ---- 门面动作（S6）----
+	// 这四个是 Flutter 唯一应该调用的入口：catalog / detail / stream / aggregate。
+	// 其余 action 保留但视为内部实现，后续逐步迁走（见 ipc_surface.go 的登记表）。
+	case "stream":
+		switch strings.ToLower(strings.TrimSpace(input.Stage)) {
+		case "fallback":
+			playback, finish, err := engine.nativeBeginPlayback(ctx, input.Sequence)
+			if err != nil {
+				return nil, err
+			}
+			defer finish()
+			return engine.nativeNextPlayback(playback, input.Session)
+		default:
+			playback, finish, err := engine.nativeBeginPlayback(ctx, input.Sequence)
+			if err != nil {
+				return nil, err
+			}
+			defer finish()
+			return engine.nativeResolve(playback, input)
+		}
+	case "aggregate":
+		switch strings.ToLower(strings.TrimSpace(input.Stage)) {
+		case "sources":
+			return engine.nativeAggregateSources(ctx, input)
+		default:
+			return engine.nativeAggregateCatalog(ctx, input)
+		}
 	case "detail":
 		return engine.nativeDetail(ctx, input.Drama)
 	case "metadata":
