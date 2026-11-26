@@ -70,8 +70,6 @@ func validNativeCategory(source, category string) bool {
 		return validDuanju51Category(category)
 	case sourceHema:
 		return validHemaCategory(category)
-	case sourceChengguo:
-		return category == "" || validChengguoID(category)
 	case sourceHuangguoMain, sourceHuangguoSelected, sourceHuangguoWelfare:
 		return category == ""
 	case sourceHuaguo, sourceWangguo, sourceFaguo, sourceWuguo, sourceMxdm, sourceJcydm:
@@ -143,13 +141,6 @@ func (engine *nativeEngine) nativeCategories(ctx context.Context, source string,
 		}
 	case sourceHanxiaoquan:
 		all = append(all, d.fetchHanxiaoquanCategories()...)
-	case sourceChengguo:
-		var categories []nativeCategory
-		categories, err = d.fetchChengguoCategories(ctx)
-		if err == nil {
-			all = append(all, categories...)
-		}
-	// 参考 zhenguojianTV v0.8.31：河马分类表在 /browse 页面数据里。
 	case sourceHema:
 		var categories []nativeCategory
 		categories, err = d.fetchHemaCategories(ctx)
