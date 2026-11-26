@@ -13,7 +13,7 @@ import (
 // 两者都必须声明 mainSha256，且必须一致。
 
 // moduleRegistryAPIVersion 是清单格式版本，独立于模块接口版本 moduleAPIVersion。
-const moduleRegistryAPIVersion = 1
+const moduleRegistryAPIVersion = 2
 
 // moduleRegistryEntry 是清单里的一条模块记录。
 type moduleRegistryEntry struct {
@@ -28,6 +28,13 @@ type moduleRegistryEntry struct {
 	MainSha256   string   `json:"mainSha256"`
 	Zip          string   `json:"zip"`
 	Size         int64    `json:"size"`
+
+	// schema 2 的可新增性声明。零值保持旧清单的行为（全部可安装）。
+	Available     *bool  `json:"available"`
+	State         string `json:"state"`
+	Reason        string `json:"reason"`
+	MinAppVersion string `json:"minAppVersion"`
+	ReplacedBy    string `json:"replacedBy"`
 }
 
 // moduleRegistryList 是一份清单。
@@ -84,6 +91,17 @@ func ParseModuleRegistry(raw []byte) (*moduleRegistryList, error) {
 		if strings.TrimSpace(entry.Zip) == "" {
 			return nil, fmt.Errorf("清单里的 %q 缺少下载地址", entry.ID)
 		}
+		if entry.State != "" && !validRegistryState(entry.State) {
+			return nil, fmt.Errorf("清单里的 %q state 不合法：%q", entry.ID, entry.State)
+		}
+		if entry.State == "retired" || entry.State == "blocked" || (entry.Available != nil && !*entry.Available) {
+			if strings.TrimSpace(entry.Reason) == "" {
+				return nil, fmt.Errorf("清单里的 %q 不可安装但缺少原因说明", entry.ID)
+			}
+		}
+		if strings.TrimSpace(entry.ReplacedBy) != "" && !moduleIDPattern.MatchString(strings.ToLower(strings.TrimSpace(entry.ReplacedBy))) {
+			return nil, fmt.Errorf("清单里的 %q replacedBy 标识不合法", entry.ID)
+		}
 	}
 	sort.SliceStable(list.Entries, func(i, j int) bool { return list.Entries[i].ID < list.Entries[j].ID })
 	return &list, nil
@@ -99,6 +117,9 @@ func (list *moduleRegistryList) EntriesFiltered(includeAdult bool) []moduleRegis
 	for _, entry := range list.Entries {
 		isAdult := entry.Adult != nil && *entry.Adult
 		if isAdult && !includeAdult {
+			continue
+		}
+		if !entry.CanInstall() {
 			continue
 		}
 		out = append(out, entry)
@@ -128,4 +149,45 @@ func VerifyEntryCode(entry moduleRegistryEntry, code []byte) error {
 	}
 	_, err := verifyModuleDigest(moduleManifest{ID: entry.ID, MainSha256: entry.MainSha256}, code)
 	return err
+}
+
+// validRegistryState 返回清单支持的源状态。
+func validRegistryState(state string) bool {
+	switch strings.ToLower(strings.TrimSpace(state)) {
+	case "active", "deprecated", "retired", "blocked":
+		return true
+	default:
+		return false
+	}
+}
+
+// CanInstall 判断清单条目是否允许新增安装。
+// 缺省的 available=true 与 state="" 保持旧清单行为。
+func (entry moduleRegistryEntry) CanInstall() bool {
+	if entry.Available != nil && !*entry.Available {
+		return false
+	}
+	switch strings.ToLower(strings.TrimSpace(entry.State)) {
+	case "retired", "blocked":
+		return false
+	default:
+		return true
+	}
+}
+
+// StateLabel 返回给用户看的状态说明；空串表示正常。
+func (entry moduleRegistryEntry) StateLabel() string {
+	if text := strings.TrimSpace(entry.Reason); text != "" {
+		return text
+	}
+	switch strings.ToLower(strings.TrimSpace(entry.State)) {
+	case "deprecated":
+		return "即将停用"
+	case "retired":
+		return "已下架"
+	case "blocked":
+		return "已停用"
+	default:
+		return ""
+	}
 }
