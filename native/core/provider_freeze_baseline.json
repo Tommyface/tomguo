@@ -33,5 +33,5 @@
     "provider_yeguo.go",
     "provider_yeguo_client.go"
   ],
-  "builtinSpecs": 15
+  "builtinSpecs": 11
 }
