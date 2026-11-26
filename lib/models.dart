@@ -66,36 +66,13 @@ class SourceSite {
   static const mxdm = SourceSite('mxdm', 'MX动漫', '日漫 · 国漫 · 剧场版');
   static const jcydm = SourceSite('jcydm', '囧次元', '日漫 · 剧场 · 热搜榜');
 
-  /// 默认可见的站源：红果、韩小圈、鬼片网、青空次元。
-  static const primaryValues = [hongguo, hanxiaoquan, guipian, sorani];
+  /// 主程序不预置任何站源：全部站源都由用户从「站源模块」导入 zip 后出现。
+  /// 这里保留空清单，是为了让 [values]/[visibleValues] 的调用方无需判空。
+  static const primaryValues = <SourceSite>[];
 
-  /// 敏感站源：默认隐藏，输入解锁密码后才显示。
-  static const restrictedValues = [
-    SourceSite('huangdou', '黄豆', '精选短剧'),
-    SourceSite('huangju', '剧果', '热门 · 最新 · 分类短剧'),
-    SourceSite('chengguo', '橙果', '原创 · AI 短剧 · 分类短剧'),
-    SourceSite('huakui', '花魁', '入口 huakui1/2/3 · 剧集站 huakui.net'),
-    SourceSite('huangguo-main', '黄果主站', '发布页 hgdhy11 主站入口 · falpius / whmxun'),
-    SourceSite('huangguo-selected', '黄果精选', '发布页精选入口 · /play 单集页'),
-    SourceSite('huangguo-welfare', '黄果福利', '发布页福利入口 · /detail + /play/章节'),
-    SourceSite('yeguo', '野果', '分类短剧 · 在线搜索'),
-    // 帝果 dsd：主域 www.dsd.com.se 与备域 djapi.999888456.xyz 均已失效，
-    // 上游 v0.8.31 亦无替代镜像，2026-11-17 起从可见列表下线。
-    // native provider 与 dsd 定义保留，源站恢复后在此重新加入即可。
-    SourceSite('huangguo-video', '黄果视频', '视频剧集'),
-    SourceSite('huangguoai', '黄果 AI', 'AI 短剧'),
-    SourceSite('cloudfront', '黄果旧版', '旧 API 剧库'),
-    // 参考 zhenguojianTV v0.8.31 新增站源。
-    duanju51,
-    hema,
-    ezdmw,
-    huaguo,
-    wangguo,
-    faguo,
-    wuguo,
-    mxdm,
-    jcydm,
-  ];
+  /// 敏感站源同样不预置；导入的模块若带 adult 标记，由模块清单决定是否解锁。
+  static const restrictedValues = <SourceSite>[];
+
   static const knownValues = [...primaryValues, ...restrictedValues];
   static const allValues = [...primaryValues, ...restrictedValues];
   static const values = knownValues;
