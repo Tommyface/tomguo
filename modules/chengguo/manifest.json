@@ -1,0 +1,21 @@
+{
+  "id": "chengguo",
+  "name": "橙果短剧",
+  "version": "1.0.0",
+  "description": "橙果短剧：Nuxt SSR 站，目录与详情从内嵌 JSON 数据图解析，播放页含带 auth_key 的 M3U8 直链。",
+  "runtime": "js",
+  "api": 1,
+  "adult": false,
+  "hosts": [
+    "chengguodj.com",
+    "api2.chengguodj.com"
+  ],
+  "capabilities": [
+    "cover"
+  ],
+  "allowEmptyCatalog": true,
+  "mainSha256": "f973c8a7efa3288d091a91cabfb0a58581c0e746b165e6e5f13f76cc7b0df422",
+  "coverHosts": [
+    "pic.mmgbaa.cn"
+  ]
+}
