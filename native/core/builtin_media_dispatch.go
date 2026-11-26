@@ -24,11 +24,6 @@ var builtinMediaTable = map[string]builtinMediaFunc{
 		*media = result
 		return true, false, err
 	},
-	sourceHuangju: func(d *Downloader, ctx context.Context, chapter *Chapter, task Task, media *providerMedia) (bool, bool, error) {
-		result, err := d.resolveHuangjuMedia(ctx, task)
-		*media = result
-		return true, false, err
-	},
 	sourceYeguo: func(d *Downloader, ctx context.Context, chapter *Chapter, task Task, media *providerMedia) (bool, bool, error) {
 		result, err := d.resolveYeguoMedia(ctx, task)
 		*media = result
@@ -36,11 +31,6 @@ var builtinMediaTable = map[string]builtinMediaFunc{
 	},
 	sourceDSD: func(d *Downloader, ctx context.Context, chapter *Chapter, task Task, media *providerMedia) (bool, bool, error) {
 		result, err := d.resolveDSDMedia(ctx, task)
-		*media = result
-		return true, false, err
-	},
-	sourceHanxiaoquan: func(d *Downloader, ctx context.Context, chapter *Chapter, task Task, media *providerMedia) (bool, bool, error) {
-		result, err := d.resolveHanxiaoquanMedia(ctx, task)
 		*media = result
 		return true, false, err
 	},
@@ -73,12 +63,6 @@ var builtinMediaTable = map[string]builtinMediaFunc{
 		*media = result
 		return true, false, nil
 	},
-	sourceHema: placeholderMedia("hema-play://", func(d *Downloader, ctx context.Context, task Task) (providerMedia, error) {
-		return d.resolveHemaMedia(ctx, task)
-	}),
-	sourceDuanju51: placeholderMedia(duanju51PlayScheme, func(d *Downloader, ctx context.Context, task Task) (providerMedia, error) {
-		return d.resolveDuanju51Playback(ctx, task)
-	}),
 }
 
 var errHuangdouInvalidEpisode = &providerGateError{message: "黄豆集数无效"}
@@ -92,12 +76,7 @@ type mediaResolver func(d *Downloader, ctx context.Context, task Task) (provider
 func placeholderMedia(scheme string, resolver mediaResolver) builtinMediaFunc {
 	return func(d *Downloader, ctx context.Context, chapter *Chapter, task Task, media *providerMedia) (bool, bool, error) {
 		if !strings.HasPrefix(chapter.VideoURL, scheme) {
-			// 51短剧还接受带 auth_key 的裸 m3u8；其余源只处理占位协议。
-			if scheme == duanju51PlayScheme && isProviderHTTPMediaURL(chapter.VideoURL) && strings.Contains(chapter.VideoURL, "auth_key=") {
-				// 继续走下面的补解析。
-			} else {
-				return false, false, nil
-			}
+			return false, false, nil
 		}
 		result, err := resolver(d, ctx, task)
 		if err != nil {
