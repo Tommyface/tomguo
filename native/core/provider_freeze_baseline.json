@@ -1,7 +1,6 @@
 {
   "providers": [
     "provider_51duanju.go",
-    "provider_chengguo.go",
     "provider_detail_metadata.go",
     "provider_discovery.go",
     "provider_dsd_catalog.go",
