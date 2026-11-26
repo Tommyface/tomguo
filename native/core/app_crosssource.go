@@ -45,11 +45,7 @@ const (
 // crossSourceOrder 是可搜索站源的固定顺序：先跑实测稳定的，再跑可能超时的。
 // 运行时安装的 JS 站源模块会追加在末尾（见 moduleCrossSourceOrder）。
 var crossSourceOrder = []string{
-	sourceHuangju,
-	sourceHanxiaoquan,
-	sourceDuanju51,
 	sourceHuangdou,
-	sourceHema,
 	sourceHongguo,
 }
 
@@ -70,12 +66,6 @@ func moduleCrossSourceOrder() []string {
 // crossSourceSearch 用各站源自己的搜索入口。返回空表示该源搜不到。
 func (d *Downloader) crossSourceSearch(ctx context.Context, source, query string) ([]Drama, error) {
 	switch source {
-	case sourceDuanju51:
-		items, _, err := d.fetchDuanju51CatalogPage(ctx, 1, "", query)
-		return items, err
-	case sourceHema:
-		items, _, err := d.fetchHemaCatalogPage(ctx, 1, "", query)
-		return items, err
 	case sourceYeguo:
 		items, _, err := d.fetchYeguoCatalogPage(ctx, 1, "", query)
 		return items, err
