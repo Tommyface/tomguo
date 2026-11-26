@@ -92,20 +92,11 @@ var builtinDetailTable = map[string]builtinDetailFunc{
 	sourceDSD: simpleDetail(func(d *Downloader, ctx context.Context, sourceID string) (Drama, []Chapter, error) {
 		return d.fetchDSDDetail(ctx, sourceID)
 	}),
-	sourceSorani: simpleDetail(func(d *Downloader, ctx context.Context, sourceID string) (Drama, []Chapter, error) {
-		return d.fetchSoraniDetail(ctx, sourceID)
-	}),
-	sourceGuipian: simpleDetail(func(d *Downloader, ctx context.Context, sourceID string) (Drama, []Chapter, error) {
-		return d.fetchGuipianDetail(ctx, sourceID)
-	}),
 	sourceHanxiaoquan: simpleDetail(func(d *Downloader, ctx context.Context, sourceID string) (Drama, []Chapter, error) {
 		return d.fetchHanxiaoquanDetail(ctx, sourceID)
 	}),
 	sourceDuanju51: simpleDetail(func(d *Downloader, ctx context.Context, sourceID string) (Drama, []Chapter, error) {
 		return d.fetchDuanju51Detail(ctx, sourceID)
-	}),
-	sourceEZDMW: simpleDetail(func(d *Downloader, ctx context.Context, sourceID string) (Drama, []Chapter, error) {
-		return d.fetchEZDMWDetail(ctx, sourceID)
 	}),
 	sourceHema: simpleDetail(func(d *Downloader, ctx context.Context, sourceID string) (Drama, []Chapter, error) {
 		return d.fetchHemaDetail(ctx, sourceID)
