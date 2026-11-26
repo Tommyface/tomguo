@@ -42,6 +42,4 @@ var bundledModules = []moduleManifest{
 	{ID: sourceWangguo, Name: "网果", Description: "短剧 · 短剧网", Runtime: moduleRuntimeBuiltin},
 	{ID: sourceFaguo, Name: "发果", Description: "短剧 · 168 影院", Runtime: moduleRuntimeBuiltin},
 	{ID: sourceWuguo, Name: "伍果", Description: "短剧 · 五五短剧", Runtime: moduleRuntimeBuiltin},
-	{ID: sourceMxdm, Name: "MX动漫", Description: "日漫 · 国漫 · 剧场版", Runtime: moduleRuntimeBuiltin},
-	{ID: sourceJcydm, Name: "囧次元", Description: "日漫 · 剧场 · 热搜榜", Runtime: moduleRuntimeBuiltin},
 }
