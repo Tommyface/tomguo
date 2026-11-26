@@ -55,10 +55,6 @@ func validNativeCategory(source, category string) bool {
 		return validYeguoCategory(category)
 	case sourceDSD:
 		return webProviderNumericID.MatchString(category)
-	case sourceDuanju51:
-		return validDuanju51Category(category)
-	case sourceHema:
-		return validHemaCategory(category)
 	case sourceHuangguoMain, sourceHuangguoSelected, sourceHuangguoWelfare:
 		return category == ""
 		}
@@ -74,14 +70,6 @@ func (engine *nativeEngine) nativeCategories(ctx context.Context, source string,
 	case sourceHuangdou:
 		return all, nil
 	// 参考 zhenguojianTV v0.8.31 新增站源：51短剧用固定分类表。
-	case sourceDuanju51:
-		return append(all, duanju51Categories...), nil
-		}
-	engine.mu.Lock()
-	cached := append([]nativeCategory{}, engine.categoryOptions[source]...)
-	engine.mu.Unlock()
-	if len(cached) > 1 && !force {
-		return cached, nil
 	}
 	d := engine.downloader
 	var err error
@@ -110,12 +98,6 @@ func (engine *nativeEngine) nativeCategories(ctx context.Context, source string,
 	case sourceDSD:
 		var categories []nativeCategory
 		categories, err = d.fetchDSDCategories(ctx, force)
-		if err == nil {
-			all = append(all, categories...)
-		}
-	case sourceHema:
-		var categories []nativeCategory
-		categories, err = d.fetchHemaCategories(ctx)
 		if err == nil {
 			all = append(all, categories...)
 		}
