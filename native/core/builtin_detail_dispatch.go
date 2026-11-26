@@ -115,9 +115,6 @@ var builtinDetailTable = map[string]builtinDetailFunc{
 		title, chapters, err := d.GetHuangguoChapters(ctx, source, sourceID)
 		return builtinDetailOutcome{Title: title, Chapters: chapters}, err
 	},
-	sourceChengguo: simpleDetail(func(d *Downloader, ctx context.Context, sourceID string) (Drama, []Chapter, error) {
-		return d.fetchChengguoDetail(ctx, sourceID)
-	}),
 	sourceHuaguo:  maccmsDetail(sourceHuaguo),
 	sourceWangguo: maccmsDetail(sourceWangguo),
 	sourceFaguo:   maccmsDetail(sourceFaguo),
@@ -130,7 +127,6 @@ var builtinDetailTable = map[string]builtinDetailFunc{
 var detailEpisodesFromRaw = map[string]bool{
 	sourceHuangju:  true,
 	sourceYeguo:    true,
-	sourceChengguo: true,
 }
 
 func init() {
