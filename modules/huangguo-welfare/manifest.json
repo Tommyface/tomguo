@@ -1,0 +1,22 @@
+{
+  "id": "huangguo-welfare",
+  "name": "黄果福利",
+  "version": "1.0.0",
+  "description": "黄果福利：本站为隐藏入口站源，模块按实测 HTML/RSC 结构解析目录、详情与播放。",
+  "runtime": "js",
+  "api": 1,
+  "adult": true,
+  "hosts": [
+    "d24dalcptr65cw.cloudfront.net"
+  ],
+  "capabilities": [
+    "cover"
+  ],
+  "allowEmptyCatalog": true,
+  "mainSha256": "5155dcb8327f9c5645ce399692dc1ca31da0340a70ada90d72ae725d4b1da3c2",
+  "coverHosts": [
+    "d3n8qx4rvy4vol.cloudfront.net",
+    "zzzznnn.lkkwip.cn",
+    "d24dalcptr65cw.cloudfront.net"
+  ]
+}
