@@ -1,0 +1,17 @@
+{
+  "id": "hanxiaoquan",
+  "name": "韩小圈",
+  "version": "1.0.0",
+  "description": "韩小圈：迁移自内置实现。",
+  "runtime": "js",
+  "api": 1,
+  "adult": false,
+  "hosts": [
+    "www.jennyhow.com"
+  ],
+  "capabilities": [
+    "cover"
+  ],
+  "allowEmptyCatalog": true,
+  "mainSha256": "a3e558224ca0fe5bb28ecd0b3a08b27e796416b6582481d70e1765ee836c9866"
+}
