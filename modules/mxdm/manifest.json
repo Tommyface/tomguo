@@ -1,0 +1,22 @@
+{
+  "id": "mxdm",
+  "name": "MX动漫",
+  "version": "1.0.0",
+  "description": "MX动漫：标准 MacCMS 站，日漫/国漫/欧美/动漫电影四分类，播放页直接内嵌 M3U8 直链。",
+  "runtime": "js",
+  "api": 1,
+  "adult": false,
+  "hosts": [
+    "www.dcc3.com"
+  ],
+  "capabilities": [
+    "cover"
+  ],
+  "allowEmptyCatalog": true,
+  "mainSha256": "0229745ec371992937694234f7a340b6d84e8c3571f9a65c3dc3a8ec0190f766",
+  "coverHosts": [
+    "p.lzp261118.com",
+    "pic3.yzzyimg.online",
+    "www.dcc3.com"
+  ]
+}
