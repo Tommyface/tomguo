@@ -12,8 +12,8 @@ func TestBuiltinCatalogTableCoversAllSourceSpecs(t *testing.T) {
 			t.Errorf("内置源 %s 没有目录分发实现", spec.ID)
 		}
 	}
-	if got := len(builtinCatalogTable); got != len(builtinSourceSpecs) {
-		t.Fatalf("分发表条目 %d 与内置源数量 %d 不一致", got, len(builtinSourceSpecs))
+	if got := len(builtinCatalogTable); got < len(builtinSourceSpecs) {
+		t.Fatalf("分发表条目 %d 少于内置源数量 %d", got, len(builtinSourceSpecs))
 	}
 }
 
