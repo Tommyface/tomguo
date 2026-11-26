@@ -1,0 +1,17 @@
+{
+  "id": "faguo",
+  "name": "发果",
+  "version": "1.0.0",
+  "description": "发果短剧：MacCMS 模板站源，列表/详情/播放全链路采集。",
+  "runtime": "js",
+  "api": 1,
+  "adult": false,
+  "hosts": [
+    "www.xzyx168.com"
+  ],
+  "capabilities": [
+    "cover"
+  ],
+  "allowEmptyCatalog": true,
+  "mainSha256": "8209c327072cd6ece3561655addc7dc6361fe4100881b9f25e6eedd50b79d401"
+}
