@@ -119,10 +119,8 @@ class _SourceGateDialogState extends State<SourceGateDialog> {
                     child: Text('只有管理员用户可以设置密码。'),
                   ),
               ] else if (!enabled) ...[
-                Text(
-                  '启用后，除'
-                  '${SourceSite.primaryValues.map((site) => site.name).join('、')}'
-                  '外的站源将默认隐藏，输入密码后才显示。',
+                const Text(
+                  '启用后，除标为公开的站源外，其余导入的站源将默认隐藏，输入密码后才显示。',
                 ),
                 const SizedBox(height: 16),
                 if (!admin)
