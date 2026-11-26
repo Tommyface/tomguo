@@ -72,7 +72,7 @@ func validNativeCategory(source, category string) bool {
 		return validHemaCategory(category)
 	case sourceHuangguoMain, sourceHuangguoSelected, sourceHuangguoWelfare:
 		return category == ""
-	case sourceHuaguo, sourceWangguo, sourceFaguo, sourceWuguo, sourceMxdm, sourceJcydm:
+	case sourceHuaguo, sourceWangguo, sourceFaguo, sourceWuguo:
 		return true
 	}
 	return false
@@ -94,7 +94,7 @@ func (engine *nativeEngine) nativeCategories(ctx context.Context, source string,
 	// 参考 zhenguojianTV v0.8.31 新增站源：51短剧用固定分类表。
 	case sourceDuanju51:
 		return append(all, duanju51Categories...), nil
-	case sourceHuaguo, sourceWangguo, sourceFaguo, sourceWuguo, sourceMxdm, sourceJcydm:
+	case sourceHuaguo, sourceWangguo, sourceFaguo, sourceWuguo:
 		return all, nil
 	}
 	engine.mu.Lock()
