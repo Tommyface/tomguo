@@ -155,14 +155,8 @@ func catalogSnapshotKey() [32]byte {
 // 用 `nativeSourceAvailable` 过滤，所以 `-ldflags -X ...buildAllSources=true`
 // 构建出来的工具会覆盖全部站源，正式 APK 则只有红果。
 func CatalogSnapshotSources() []string {
-	candidates := []string{
-		sourceHongguo,
-		sourceHuangdou,
-		sourceHuangguoAI,
-		sourceHuangguoVideo,
-		sourceCloudFront,
-		sourceYeguo,
-	}
+	// 主程序不内置站源，快照候选由已安装模块决定。
+	candidates := moduleCrossSourceOrder()
 	sources := make([]string, 0, len(candidates))
 	for _, source := range candidates {
 		if nativeSourceAvailable(source) {
