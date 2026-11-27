@@ -37,7 +37,7 @@ func (engine *nativeEngine) pendingCoverBackfill(items []nativeDrama) []string {
 // backfillCovers 为缺海报的条目补详情元数据：详情页解析到 og:image 后
 // 通过 saveDetailMetadata 回写剧库缓存，下一屏就有图。
 func (engine *nativeEngine) backfillCovers(source string, items []nativeDrama) {
-	if len(items) == 0 || isRetiredSource(source) {
+	if len(items) == 0 || !sourceInstalled(source) {
 		return
 	}
 	ids := engine.pendingCoverBackfill(items)
