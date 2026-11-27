@@ -138,12 +138,18 @@ class SourceSite {
         if (enabled == null || enabled.contains(site.id)) site,
     ];
   }
-  static SourceSite byId(String id) =>
-      allValues.firstWhere(
-        (site) => site.id == id,
-        orElse: () =>
-            _custom[id] ?? _modules[id] ?? hongguo,
-      );
+  static SourceSite byId(String id) {
+    for (final site in allValues) {
+      if (site.id == id) return site;
+    }
+    final custom = _custom[id];
+    if (custom != null) return custom;
+    final module = _modules[id];
+    if (module != null) return module;
+    if (_modules.isNotEmpty) return _modules.values.first;
+    if (_custom.isNotEmpty) return _custom.values.first;
+    return hongguo;
+  }
 }
 
 class SourceGroup {
