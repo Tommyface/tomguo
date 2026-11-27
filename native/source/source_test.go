@@ -114,18 +114,25 @@ func TestAdapterRateLimitInterval(t *testing.T) {
 	}
 }
 
-func TestAdapterCapabilityGate(t *testing.T) {
-	adapter := NewAdapter(Meta{ID: "demo", Capabilities: []string{CapabilityCatalog}}, &stubHandler{}, DefaultPolicy())
-	if _, err := adapter.Search(context.Background(), 1, "q"); err == nil {
-		t.Fatal("未声明搜索能力应拒绝")
-	} else if IsTransient(err) {
-		t.Fatal("能力缺失应为永久错误，不重试")
+func TestAdapterIgnoresExtraCapabilityDeclaration(t *testing.T) {
+	// manifest 的 capabilities 只列额外能力（cover/search 等），
+	// 五个契约动作不受它约束，否则声明了 cover 的模块会被整体拦掉。
+	adapter := NewAdapter(Meta{ID: "demo", Capabilities: []string{"cover"}}, &stubHandler{
+		items:  []CatalogItem{{ID: "d1"}},
+		detail: DramaDetail{Item: CatalogItem{ID: "d1"}},
+		stream: MediaStream{URL: "https://cdn.example.com/a.m3u8"},
+	}, DefaultPolicy())
+	if _, _, err := adapter.Catalog(context.Background(), 1, ""); err != nil {
+		t.Fatalf("目录应放行：%v", err)
 	}
-	if _, err := adapter.Stream(context.Background(), StreamRequest{}); err == nil {
-		t.Fatal("未声明播放能力应拒绝")
+	if _, err := adapter.Detail(context.Background(), "d1"); err != nil {
+		t.Fatalf("详情应放行：%v", err)
 	}
-	if _, _, err := adapter.Catalog(context.Background(), 0, ""); err != nil {
-		t.Fatalf("已声明目录能力应放行：%v", err)
+	if _, err := adapter.Stream(context.Background(), StreamRequest{}); err != nil {
+		t.Fatalf("播放应放行：%v", err)
+	}
+	if _, err := adapter.Search(context.Background(), 1, "q"); err != nil {
+		t.Fatalf("搜索应放行：%v", err)
 	}
 }
 
