@@ -116,9 +116,7 @@ func (engine *nativeEngine) InstallFromRegistry(request registryInstallRequest) 
 	}
 	DropModuleFetchCache()
 
-	moduleRegistry.Lock()
-	moduleRegistry.modules[entry.ID] = module
-	moduleRegistry.Unlock()
+	storeModule(module)
 	return moduleStatus{
 		moduleManifest: module.manifest,
 		Installed:      true,
