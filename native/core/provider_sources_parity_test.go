@@ -37,7 +37,6 @@ func providerParityDownloader(t *testing.T, transport func(*http.Request, url.Va
 	return d
 }
 
-
 func TestYeguoDomainAliasesAndDefaultEndpoint(t *testing.T) {
 	if got := (&Downloader{cfg: defaultConfig()}).providerBaseURL(sourceYeguo); got != "https://analyze.buxefaex.cc" {
 		t.Fatalf("unexpected default yeguo endpoint: %s", got)
@@ -86,6 +85,7 @@ backupLine = Vx.map(Vx.range(1, 3), function () { return location.protocol + '//
 }
 
 func TestProviderCatalogUpdateDefaultsToFiftyYeguoPostPages(t *testing.T) {
+	skipLegacyBuiltin(t)
 	var pages []string
 	engine := sourceFixtureEngine(t, func(request *http.Request) (*http.Response, error) {
 		if request.URL.Host != "api.yeguo.test" || request.URL.Path != "/api/theater/exploreList" {
@@ -116,7 +116,6 @@ func TestProviderCatalogUpdateDefaultsToFiftyYeguoPostPages(t *testing.T) {
 	}
 }
 
-
 func TestYeguoCatalogAcceptsSourcePageSize(t *testing.T) {
 	d := providerParityDownloader(t, func(request *http.Request, form url.Values) (*http.Response, error) {
 		if request.URL.Host != "api.yeguo.test" || request.URL.Path != "/api/theater/exploreList" {
@@ -139,8 +138,6 @@ func TestYeguoCatalogAcceptsSourcePageSize(t *testing.T) {
 		t.Fatalf("yeguo source-sized page rejected: items=%d more=%t err=%v", len(items), more, err)
 	}
 }
-
-
 
 func TestProviderMediaCredentialsLimitOriginAndUseBackupAddresses(t *testing.T) {
 	primary := "https://media.example.test/main.mp4"
