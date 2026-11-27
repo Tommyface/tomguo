@@ -430,6 +430,81 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
+  /// 线路列表：同一部剧在当前聚合结果里有几个站源可选。
+  ///
+  /// 影视仓式的用法是「一条剧 → 多条线路」，用户先看有几条、再挑一条播。
+  /// 默认播放剧集最多的那条，其余在这里一键切换。
+  Widget _routes() {
+    final colors = Theme.of(context).colorScheme;
+    final sorted = [...widget.switchSources]..sort((a, b) {
+      if (a.playable != b.playable) return a.playable ? -1 : 1;
+      if (a.episodes != b.episodes) return b.episodes.compareTo(a.episodes);
+      if (a.vip != b.vip) return a.vip ? 1 : -1;
+      return 0;
+    });
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.alt_route, size: 16, color: colors.onSurfaceVariant),
+            const SizedBox(width: 6),
+            Text(
+              '${sorted.length} 条线路有这部剧',
+              style: TextStyle(
+                color: colors.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final route in sorted)
+              ActionChip(
+                avatar: Icon(
+                  route.playable
+                      ? Icons.play_circle_outline
+                      : Icons.error_outline,
+                  size: 16,
+                ),
+                label: Text(
+                  route.vip
+                      ? '${SourceSite.byId(route.source).name} · VIP'
+                      : route.episodes > 0
+                      ? '${SourceSite.byId(route.source).name} · ${route.episodes} 集'
+                      : SourceSite.byId(route.source).name,
+                ),
+                onPressed: () => _switchTo(route),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _switchTo(AggregatedSource route) async {
+    final drama = route.toDrama(
+      widget.switchTitle.isEmpty ? widget.drama.title : widget.switchTitle,
+    );
+    if (drama.source == widget.drama.source) return;
+    await Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => DetailScreen(
+          drama: drama,
+          repository: widget.repository,
+          store: widget.store,
+          switchSources: widget.switchSources,
+          switchTitle: widget.switchTitle,
+          adultView: widget.adultView,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final drama = _detail?.drama ?? widget.drama;
@@ -527,6 +602,13 @@ class _DetailScreenState extends State<DetailScreen> {
                           child: _overview(drama),
                         ),
                       ),
+                      if (widget.switchSources.length > 1)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                            child: _routes(),
+                          ),
+                        ),
                       if (_loading || _error != null || episodes.isEmpty)
                         SliverFillRemaining(
                           hasScrollBody: false,
@@ -761,8 +843,7 @@ class _DetailScreenState extends State<DetailScreen> {
     return ((width - 40) / minimum).floor().clamp(1, 12);
   }
 
-  Widget _overview(Drama drama) {
-    final colors = Theme.of(context).colorScheme;
+  Widget _overview(Drama drama) {    final colors = Theme.of(context).colorScheme;
     final meta = [
       SourceSite.byId(drama.source).name,
       if (drama.episodes > 0) '共 ${drama.episodes} 集',
