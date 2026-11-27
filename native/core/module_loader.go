@@ -203,6 +203,10 @@ func parseModule(raw, code []byte) (*jsModule, error) {
 	if len(unknownCapabilities) > 0 {
 		warnings = append(warnings, "模块声明了当前版本不认识的能力："+strings.Join(unknownCapabilities, "、")+"，已忽略")
 	}
+	// 导出契约闸：编译前确认五个动作齐全，不让残缺模块进入运行期。
+	if err := checkModuleContract(manifest.ID, code, manifest.Capabilities); err != nil {
+		return nil, err
+	}
 	// CommonJS 包装：模块代码里用 module.exports，需要注入 module/exports/host。
 	wrapped := "(function(module, exports, host){" + string(code) + "\n})"
 	program, err := goja.Compile(manifest.ID, wrapped, true)
