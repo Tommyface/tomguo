@@ -154,3 +154,18 @@ func TestTitlesMatchReordered(t *testing.T) {
 		}
 	}
 }
+
+func TestIsGenericAggregateTitle(t *testing.T) {
+	generic := []string{"1个月前", "3天前", "全集完结", "全部", "完结", "大结局", "预告", "热播", ""}
+	for _, title := range generic {
+		if !isGenericAggregateTitle(title) {
+			t.Errorf("占位标题 %q 应被识别为噪声", title)
+		}
+	}
+	real := []string{"总裁夫人", "重生之都市修仙", "闪婚总裁大人", "我的美女老板"}
+	for _, title := range real {
+		if isGenericAggregateTitle(title) {
+			t.Errorf("真实剧名 %q 不应被当作噪声", title)
+		}
+	}
+}
