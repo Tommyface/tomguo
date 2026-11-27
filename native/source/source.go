@@ -74,9 +74,6 @@ func (a *Adapter) record(err error) {
 }
 
 func (a *Adapter) Categories(ctx context.Context, force bool) ([]Category, error) {
-	if !a.meta.Supports(CapabilityCatalog) {
-		return nil, Permanent("categories", fmt.Errorf("源 %s 未声明目录能力", a.meta.ID))
-	}
 	value, err := invoke(ctx, a.policy, &a.limiter, "categories", func(callCtx context.Context) ([]Category, error) {
 		return a.handler.Categories(callCtx, force)
 	})
@@ -85,9 +82,6 @@ func (a *Adapter) Categories(ctx context.Context, force bool) ([]Category, error
 }
 
 func (a *Adapter) Catalog(ctx context.Context, page int, category string) ([]CatalogItem, bool, error) {
-	if !a.meta.Supports(CapabilityCatalog) {
-		return nil, false, Permanent("catalog", fmt.Errorf("源 %s 未声明目录能力", a.meta.ID))
-	}
 	if page < 1 {
 		page = 1
 	}
@@ -107,9 +101,6 @@ func (a *Adapter) Catalog(ctx context.Context, page int, category string) ([]Cat
 }
 
 func (a *Adapter) Search(ctx context.Context, page int, query string) ([]CatalogItem, error) {
-	if !a.meta.Supports(CapabilitySearch) {
-		return nil, Permanent("search", fmt.Errorf("源 %s 未声明搜索能力", a.meta.ID))
-	}
 	if page < 1 {
 		page = 1
 	}
@@ -122,9 +113,6 @@ func (a *Adapter) Search(ctx context.Context, page int, query string) ([]Catalog
 }
 
 func (a *Adapter) Detail(ctx context.Context, sourceID string) (DramaDetail, error) {
-	if !a.meta.Supports(CapabilityDetail) {
-		return DramaDetail{}, Permanent("detail", fmt.Errorf("源 %s 未声明详情能力", a.meta.ID))
-	}
 	value, err := invoke(ctx, a.policy, &a.limiter, "detail", func(callCtx context.Context) (DramaDetail, error) {
 		return a.handler.Detail(callCtx, sourceID)
 	})
@@ -133,9 +121,6 @@ func (a *Adapter) Detail(ctx context.Context, sourceID string) (DramaDetail, err
 }
 
 func (a *Adapter) Stream(ctx context.Context, request StreamRequest) (MediaStream, error) {
-	if !a.meta.Supports(CapabilityStream) {
-		return MediaStream{}, Permanent("stream", fmt.Errorf("源 %s 未声明播放能力", a.meta.ID))
-	}
 	value, err := invoke(ctx, a.policy, &a.limiter, "stream", func(callCtx context.Context) (MediaStream, error) {
 		return a.handler.Stream(callCtx, request)
 	})
@@ -147,10 +132,26 @@ func (a *Adapter) Stream(ctx context.Context, request StreamRequest) (MediaStrea
 type Registry struct {
 	mu      sync.RWMutex
 	sources map[string]Source
+	runners map[string]*Runner
 }
 
 func NewRegistry() *Registry {
-	return &Registry{sources: map[string]Source{}}
+	return &Registry{sources: map[string]Source{}, runners: map[string]*Runner{}}
+}
+
+// Runner 返回该源的策略执行器，按需创建并复用，保证限速与健康统计连续。
+func (r *Registry) Runner(id string) *Runner {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.runners == nil {
+		r.runners = map[string]*Runner{}
+	}
+	if runner, ok := r.runners[id]; ok {
+		return runner
+	}
+	runner := NewRunner(DefaultPolicy())
+	r.runners[id] = runner
+	return runner
 }
 
 func (r *Registry) Register(item Source) error {
