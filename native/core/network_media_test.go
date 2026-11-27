@@ -15,6 +15,7 @@ import (
 )
 
 func TestHuangguoMediaUsesBrowserSessionPageRefererAndPreviewToken(t *testing.T) {
+	skipLegacyBuiltin(t)
 	var previews, keys atomic.Int32
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.ProtoMajor != 2 || !strings.Contains(r.UserAgent(), "Chrome/150.") {
@@ -148,6 +149,7 @@ func TestHuangguoPreviewTokenRefreshIsBoundedAndScoped(t *testing.T) {
 }
 
 func TestLegacyPlaybackAndDownloadUseAuthenticatedPlaylistAndSourceKey(t *testing.T) {
+	skipLegacyBuiltin(t)
 	var keys atomic.Int32
 	d := sourceFixtureDownloader(t, func(request *http.Request) (*http.Response, error) {
 		switch request.URL.Path {
