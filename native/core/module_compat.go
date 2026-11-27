@@ -60,32 +60,7 @@ func moduleCompatMembers(p *jsProvider, instance *jsInstance) map[string]any {
 	return map[string]any{
 		// fetchText 走原 fetch，再把 Body 原样作为文本返回。
 		"fetchText": func(request jsTextRequest) jsTextResponse {
-			headers := map[string]string{}
-			for key, value := range request.Headers {
-				headers[key] = value
-			}
-			if request.Referer != "" {
-				headers["Referer"] = request.Referer
-			}
-			if request.UserAgent != "" {
-				headers["User-Agent"] = request.UserAgent
-			}
-			if request.Cookie != "" {
-				headers["Cookie"] = request.Cookie
-			}
-			if request.Method == "" {
-				request.Method = "GET"
-			}
-			native := jsFetchRequest{
-				Method: request.Method, URL: request.URL, Headers: headers,
-				Body: request.Body, TimeoutMS: request.TimeoutMS, Limit: request.Limit,
-				FollowRedirects: true,
-			}
-			response, err := p.fetch(instance.ctx, native)
-			if err != nil {
-				return jsTextResponse{Status: 0, Body: "", URL: request.URL}
-			}
-			return jsTextResponse{Status: response.Status, Body: response.Body, URL: request.URL, FinalURL: request.URL}
+			return moduleFetchText(p, instance, request)
 		},
 		"preserveIntegers": modulePreserveIntegers,
 		"parseUrl": func(raw string) goja.Value {
@@ -229,6 +204,107 @@ func moduleCompatMembers(p *jsProvider, instance *jsInstance) map[string]any {
 			return moduleCompatMembers(p, instance)["fetchText"].(func(jsTextRequest) jsTextResponse)(request)
 		},
 	}
+}
+
+// moduleFetchText 是 fetchText 与全局 req/http 共用的取文本实现。
+func moduleFetchText(p *jsProvider, instance *jsInstance, request jsTextRequest) jsTextResponse {
+	headers := map[string]string{}
+	for key, value := range request.Headers {
+		headers[key] = value
+	}
+	if request.Referer != "" {
+		headers["Referer"] = request.Referer
+	}
+	if request.UserAgent != "" {
+		headers["User-Agent"] = request.UserAgent
+	}
+	if request.Cookie != "" {
+		headers["Cookie"] = request.Cookie
+	}
+	if request.Method == "" {
+		request.Method = "GET"
+	}
+	native := jsFetchRequest{
+		Method: request.Method, URL: request.URL, Headers: headers,
+		Body: request.Body, TimeoutMS: request.TimeoutMS, Limit: request.Limit,
+		FollowRedirects: true,
+	}
+	response, err := p.fetch(instance.ctx, native)
+	if err != nil {
+		return jsTextResponse{Status: 0, Body: "", URL: request.URL}
+	}
+	return jsTextResponse{Status: response.Status, Body: response.Body, URL: request.URL, FinalURL: request.URL}
+}
+
+// installModuleGlobals 注入兼容 FongMi/TVBox 站点脚本的全局符号。
+//
+// global / window / self 三个别名都指向 globalThis，让浏览器风格的脚本原样可跑；
+// req / http 是同步取文本函数，对应 TVBox 的 req(url, options) 契约，返回
+// { status, body, content, url, finalUrl }。模块自身定义的同名局部函数会遮蔽全局，
+// 不会影响既有模块。
+func installModuleGlobals(vm *goja.Runtime, p *jsProvider, instance *jsInstance) {
+	global := vm.GlobalObject()
+	for _, name := range []string{"global", "window", "self"} {
+		if existing := global.Get(name); existing != nil && !goja.IsUndefined(existing) {
+			continue
+		}
+		_ = global.DefineDataProperty(name, global, goja.FLAG_TRUE, goja.FLAG_TRUE, goja.FLAG_TRUE)
+	}
+	requestText := func(call goja.FunctionCall) goja.Value {
+		var url, method, body string
+		headers := map[string]string{}
+		timeout := int64(0)
+		for index := 0; index < len(call.Arguments); index++ {
+			arg := call.Argument(index)
+			if goja.IsUndefined(arg) || goja.IsNull(arg) {
+				continue
+			}
+			switch index {
+			case 0:
+				url = arg.String()
+			case 1:
+				options := arg.ToObject(vm)
+				if value := options.Get("method"); value != nil && !goja.IsUndefined(value) {
+					method = strings.ToUpper(value.String())
+				}
+				if value := options.Get("body"); value != nil && !goja.IsUndefined(value) {
+					body = value.String()
+				}
+				if value := options.Get("timeout"); value != nil && !goja.IsUndefined(value) {
+					timeout = value.ToInteger()
+				}
+				if value := options.Get("headers"); value != nil && !goja.IsUndefined(value) {
+					object := value.ToObject(vm)
+					for _, key := range object.Keys() {
+						if item := object.Get(key); item != nil && !goja.IsUndefined(item) {
+							headers[key] = item.String()
+						}
+					}
+				}
+				if value := options.Get("referer"); value != nil && !goja.IsUndefined(value) {
+					headers["Referer"] = value.String()
+				}
+				if value := options.Get("userAgent"); value != nil && !goja.IsUndefined(value) {
+					headers["User-Agent"] = value.String()
+				}
+				if value := options.Get("cookie"); value != nil && !goja.IsUndefined(value) {
+					headers["Cookie"] = value.String()
+				}
+			}
+		}
+		response := moduleFetchText(p, instance, jsTextRequest{
+			Method: method, URL: url, Headers: headers, Body: body, TimeoutMS: timeout,
+		})
+		result := vm.NewObject()
+		_ = result.Set("status", response.Status)
+		_ = result.Set("body", response.Body)
+		_ = result.Set("content", response.Body)
+		_ = result.Set("url", response.URL)
+		_ = result.Set("finalUrl", response.FinalURL)
+		return result
+	}
+	_ = global.Set("req", requestText)
+	_ = global.Set("http", requestText)
 }
 
 // compatHTMLNode 把 html.Node 转成 guoapp 模块读取的普通对象。
