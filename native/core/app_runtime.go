@@ -651,13 +651,20 @@ func (engine *nativeEngine) nativeCatalog(ctx context.Context, input nativeInput
 	}
 	// 已安装的模块接管同名站源，内置实现作为兜底。
 	if moduleTakesOver(source) {
-		items, more, err := engine.downloader.moduleCatalog(ctx, source, max(1, input.Page), strings.TrimSpace(input.Category), strings.TrimSpace(input.Query))
+		category := strings.TrimSpace(input.Category)
+		query := strings.TrimSpace(input.Query)
+		items, more, err := engine.downloader.moduleCatalog(ctx, source, max(1, input.Page), category, query)
 		if err != nil {
 			return nativeCatalogResult{}, err
 		}
 		result := nativeCatalogResult{Items: []nativeDrama{}, Page: max(1, input.Page), HasMore: more}
 		for _, drama := range items {
 			result.Items = append(result.Items, nativeNormalize(drama))
+		}
+		// 搜索结果不进剧库；目录结果按源落本地分片，冷启动可直接恢复，
+		// 更新任务在此基础上只做增量，不必每次从头翻页。
+		if query == "" {
+			engine.saveCatalogCache(nativeCatalogKey(source, category), &result)
 		}
 		return result, nil
 	}
