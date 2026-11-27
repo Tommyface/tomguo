@@ -138,6 +138,49 @@ func moduleManifestByID(id string) *moduleManifest {
 // 首屏只等这批源即可出卡片，剩余源在后台继续补，避免被慢源拖住。
 const aggregatePriorityCount = 4
 
+// aggregateSourceIDs 返回聚合要跑的源集合：注册表里有目录能力的源优先，
+// 再并上调用方给的固定顺序。源清单不再从模块清单或内置分发表推导。
+func aggregateSourceIDs() []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(crossSourceOrder)+sourceAdapters.Len())
+	add := func(id string) {
+		normalized := canonicalProviderSource(id)
+		if normalized == "" {
+			normalized = strings.ToLower(strings.TrimSpace(id))
+		}
+		if normalized == "" || seen[normalized] {
+			return
+		}
+		seen[normalized] = true
+		out = append(out, normalized)
+	}
+	for _, id := range crossSourceOrder {
+		add(id)
+	}
+	for _, item := range sourceAdapters.List() {
+		if item.Meta().AllowEmptyCatalog {
+			continue
+		}
+		add(item.ID())
+	}
+	return out
+}
+
+// aggregateCatalogOnce 走适配层策略执行单源目录：超时、重试、限速、健康统计。
+func (engine *nativeEngine) aggregateCatalogOnce(ctx context.Context, src string, input nativeInput) (nativeCatalogResult, error) {
+	var result nativeCatalogResult
+	runner := sourceAdapters.Runner(src)
+	err := runner.Run(ctx, "catalog", func(callCtx context.Context) error {
+		value, callErr := engine.nativeCatalog(callCtx, input)
+		if callErr != nil {
+			return classifyAggregateError(callErr)
+		}
+		result = value
+		return nil
+	})
+	return result, err
+}
+
 // aggregateSourceItems 并发拉取每个源的目录页；单源失败不影响整体。
 func (engine *nativeEngine) aggregateSourceItems(ctx context.Context, sources []string, page int, category, query string) (map[string][]nativeDrama, map[string]string) {
 	out := make(map[string][]nativeDrama, len(sources))
@@ -163,7 +206,7 @@ func (engine *nativeEngine) aggregateSourceItems(ctx context.Context, sources []
 			child, cancel := context.WithTimeout(ctx, 60*time.Second)
 			defer cancel()
 			input := nativeInput{Source: src, Page: page, Category: category, Query: query}
-			result, err := engine.nativeCatalog(child, input)
+			result, err := engine.aggregateCatalogOnce(child, src, input)
 			mu.Lock()
 			defer mu.Unlock()
 			if err != nil {
@@ -278,8 +321,7 @@ func (engine *nativeEngine) nativeAggregateCatalog(ctx context.Context, input na
 	}
 	sources := input.Sources
 	if len(sources) == 0 {
-		sources = crossSourceOrder
-		sources = append(sources, moduleCrossSourceOrder()...)
+		sources = aggregateSourceIDs()
 	}
 	// 首屏只等优先级高的前几路源，返回 partial=true；其余源后台继续取。
 	// 调用方拿到 partial 后可用同一 groupId 再发一次请求合并完整结果。
@@ -357,8 +399,7 @@ func (engine *nativeEngine) nativeAggregateSources(ctx context.Context, input na
 func (engine *nativeEngine) nativeAggregateCached(input nativeInput) nativeAggregateResult {
 	sources := input.Sources
 	if len(sources) == 0 {
-		sources = crossSourceOrder
-		sources = append(sources, moduleCrossSourceOrder()...)
+		sources = aggregateSourceIDs()
 	}
 	perSource := make(map[string][]nativeDrama, len(sources))
 	for _, raw := range sources {
