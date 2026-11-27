@@ -82,6 +82,7 @@ class AggregatedHomeView extends StatefulWidget {
 class _AggregatedHomeViewState extends State<AggregatedHomeView> {
   final _scroll = ScrollController();
   bool _loading = true;
+  bool _inFlight = false;
   bool _loadingMore = false;
   bool _hasMore = false;
   int _page = 1;
@@ -228,12 +229,11 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
   }
 
   Future<void> _load({bool more = false}) async {
-    if (more ? _loadingMore : _loading) return;
+    if (more ? _loadingMore : _inFlight) return;
     if (more && !_hasMore) return;
+    if (!more) _inFlight = true;
     final seq = ++_loadSeq;
     final page = more ? _page + 1 : 1;
-    // groupId 用请求语义拼成稳定值，不再用时间戳。
-    // 原来每次新建 = Go 侧无法跨请求复用结果，切一次类型就全量重拉。
     final groupId = more || _groupId.isNotEmpty
         ? _groupId
         : 'agg-${_sourceIds.join(',')}-${_ctl.kind}-${_ctl.adultView}-$page';
@@ -247,7 +247,6 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
         _page = 1;
       }
     });
-    // 首帧先铺已缓存的各源目录，避免整屏转圈等待全部站源。
     if (!more && page == 1 && _items.isEmpty) {
       final cachedItems = await _cachedItems();
       if (cachedItems.isNotEmpty && mounted && seq == _loadSeq) {
@@ -275,7 +274,6 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
             ? ''
             : '${result.failedSources.length} 个站源本轮未响应';
       });
-      // 首屏只等了部分源；同一 groupId 再取一次拿完整结果。
       if (result.partial && !more && mounted) {
         unawaited(_loadRefinement(groupId, seq));
       }
@@ -286,6 +284,8 @@ class _AggregatedHomeViewState extends State<AggregatedHomeView> {
         _loading = false;
         _loadingMore = false;
       });
+    } finally {
+      if (!more && seq == _loadSeq) _inFlight = false;
     }
   }
 
