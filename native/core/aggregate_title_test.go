@@ -123,3 +123,34 @@ func TestAggregateTitleCorpusAccuracy(t *testing.T) {
 		t.Fatalf("准确率 %.1f%%、误合并 %d 组，未达 95%%/≤2 验收线", accuracy*100, wrong)
 	}
 }
+
+func TestTitleVoteAlgorithms(t *testing.T) {
+	if got := bigramDice("总裁的替身新娘", "替身新娘总裁"); got < 0.6 {
+		t.Errorf("词序重排 bigramDice=%f 应较高", got)
+	}
+	if got := lcsRatio("总裁夫人", "总裁夫人的秘密"); got <= 0 || got >= 1 {
+		t.Errorf("lcsRatio=%f 应在 0~1 之间", got)
+	}
+	if bigramDice("", "总裁") != 0 || lcsRatio("总裁", "") != 0 {
+		t.Error("空串相似度应为 0")
+	}
+}
+
+func TestTitlesMatchReordered(t *testing.T) {
+	// 单 Jaro-Winkler 对词序重排偏低（< 0.92 会漏判），三算法投票应补上这类盲区。
+	pairs := [][2]string{
+		{"我的总裁老公大人", "总裁老公大人我的"},
+	}
+	for _, pair := range pairs {
+		left, right := aggregateTitleKey(pair[0]), aggregateTitleKey(pair[1])
+		if jaroWinkler(left, right) >= titleMatchThreshold {
+			t.Logf("%q / %q 单 Jaro-Winkler 已足够，该用例不体现投票价值", pair[0], pair[1])
+			continue
+		}
+		if !titlesMatch(left, right) {
+			t.Errorf("%q 与 %q 词序重排应判为同一部（votes=%d dice=%.3f lcs=%.3f jw=%.3f）",
+				pair[0], pair[1], titleVoteCount(left, right),
+				bigramDice(left, right), lcsRatio(left, right), jaroWinkler(left, right))
+		}
+	}
+}
