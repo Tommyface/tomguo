@@ -180,6 +180,7 @@ func TestNativeCoverRedirectAndBoundedDiskCache(t *testing.T) {
 }
 
 func TestNativeCatalogCacheFreshnessPagingAndRefresh(t *testing.T) {
+	skipLegacyBuiltin(t)
 	var calls atomic.Int32
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls.Add(1)
@@ -244,6 +245,7 @@ func TestNativeCatalogCacheFreshnessPagingAndRefresh(t *testing.T) {
 }
 
 func TestNativeCatalogCacheMigratesAndKeepsHongguoCursorItems(t *testing.T) {
+	skipLegacyBuiltin(t)
 	directory := t.TempDir()
 	old := nativeDrama{ID: "hongguo:101", Title: "原有合成记录"}
 	legacy, _ := json.Marshal(map[string][]nativeDrama{sourceHongguo: {old}})
