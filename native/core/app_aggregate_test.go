@@ -95,25 +95,30 @@ func TestSourceIsAdultChengGuo(t *testing.T) {
 }
 
 func TestNativeRankingBoardSupported(t *testing.T) {
-	seen := map[string]bool{}
+	// S7 之后榜单只来自已装模块：内置榜单源没有 Go 实现时一律不下发，
+	// 否则界面会出现点了必然报错的空榜单。
 	for _, board := range rankingBoards {
-		if !nativeRankingBoardSupported(board) {
-			continue
+		if nativeRankingBoardSupported(board) && !moduleTakesOver(board.Source) {
+			t.Fatalf("board %s 在源 %s 没有模块接管时被判为可用", board.ID, board.Source)
 		}
-		if isRetiredSource(board.Source) {
-			t.Errorf("board %s uses retired source %s", board.ID, board.Source)
+		if isRetiredSource(board.Source) && nativeRankingBoardSupported(board) {
+			t.Fatalf("board %s 指向已退役源 %s", board.ID, board.Source)
 		}
-		seen[board.Source] = true
 	}
-	// S7 之后内置源清单为空，榜单只认仍在注册表里的源；
-	// 这里断言「至少有一个可用榜单源，且没有指向已退役源」。
-	if len(seen) == 0 {
-		t.Fatal("没有任何可用榜单源")
+}
+
+func TestModuleRankingBoardSourceParsesDynamicID(t *testing.T) {
+	saved := moduleRegistry.modules
+	defer func() { moduleRegistry.modules = saved }()
+	moduleRegistry.modules = map[string]*jsModule{
+		"51duanju": {manifest: moduleManifest{ID: "51duanju", Name: "51短剧"}},
 	}
-	for source := range seen {
-		if !sourceInstalled(source) && !nativeSourceAvailable(source) {
-			t.Fatalf("榜单源 %q 既无内置实现也无已装模块：%v", source, seen)
-		}
+	source, ok := moduleRankingBoardSource("51duanju-rank")
+	if !ok || source != "51duanju" {
+		t.Fatalf("动态榜单板 ID 解析失败：%q %v", source, ok)
+	}
+	if _, ok := moduleRankingBoardSource("unknown-rank"); ok {
+		t.Fatal("未知前缀不应解析出站源")
 	}
 }
 
