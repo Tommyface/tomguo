@@ -7,6 +7,20 @@ import (
 
 var errNativeBuildSource = errors.New("当前版本不包含此站源")
 
+// sourceInstalled 判断站源当前是否有可执行实现：已安装模块或仍存在的内置源。
+// S7 之后内置源清单为空，未安装的 id 既不能取目录，也不该进入预热与封面补全队列。
+func sourceInstalled(source string) bool {
+	normalized := canonicalProviderSource(strings.ToLower(strings.TrimSpace(source)))
+	if normalized == "" {
+		return false
+	}
+	if moduleSource(normalized) != nil {
+		return true
+	}
+	_, ok := lookupSourceSpec(normalized)
+	return ok
+}
+
 func nativeSourceAvailable(source string) bool {
 	normalized := canonicalProviderSource(source)
 	// S7：已安装的 JS 模块接管同名内置源时，即使对应的 Go provider 已删除，
