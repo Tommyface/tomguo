@@ -17,6 +17,7 @@ const (
 	moduleEntryBytes  = 4 << 20
 	moduleVersionFile = ".version"
 	moduleInstanceMax = 4
+	moduleCallRetries = 2
 	moduleCallTimeout = 60 * time.Second
 	moduleQuickMs     = 5 * time.Second
 	moduleCacheMax    = 512
