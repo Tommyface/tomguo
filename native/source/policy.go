@@ -181,3 +181,44 @@ func invoke[T any](ctx context.Context, policy Policy, limiter *limiter, op stri
 	}
 	return zero, lastErr
 }
+
+// Runner 把同一套策略暴露给已有自己模型的调用方（例如聚合引擎），
+// 只负责超时、重试、限速与健康统计，不参与模型转换。
+type Runner struct {
+	policy  Policy
+	limiter limiter
+	mu      sync.Mutex
+	health  Health
+}
+
+func NewRunner(policy Policy) *Runner {
+	policy = policy.normalized()
+	return &Runner{policy: policy, limiter: limiter{interval: policy.Interval}}
+}
+
+func (r *Runner) Run(ctx context.Context, op string, fn func(context.Context) error) error {
+	_, err := invoke(ctx, r.policy, &r.limiter, op, func(callCtx context.Context) (struct{}, error) {
+		return struct{}{}, fn(callCtx)
+	})
+	r.record(err)
+	return err
+}
+
+func (r *Runner) Health() Health {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.health
+}
+
+func (r *Runner) record(err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.health.LastAt = time.Now()
+	if err != nil {
+		r.health.Failure++
+		r.health.LastError = err.Error()
+		return
+	}
+	r.health.Success++
+	r.health.LastError = ""
+}
