@@ -310,11 +310,17 @@ func (engine *nativeEngine) updateSource(ctx context.Context, source, operation 
 		engine.changeSourceRecord(source, func(record *nativeSourceRecord) { record.Stage = "继续加载历史分页" })
 		limit := 1
 		if operation == "update" {
-			maxPages := engine.downloader.cfg.MaxPagesPerSort
-			if maxPages <= 0 {
-				maxPages = defaultConfig().MaxPagesPerSort
+			// 本地已有剧库时只翻一页增量：首页新剧已合并进本地快照，
+			// 历史分页留给「继续加载」按次做，避免慢站点每次从头翻满全部页而超时。
+			if count > 0 {
+				limit = 1
+			} else {
+				maxPages := engine.downloader.cfg.MaxPagesPerSort
+				if maxPages <= 0 {
+					maxPages = defaultConfig().MaxPagesPerSort
+				}
+				limit = max(0, maxPages-1)
 			}
-			limit = max(0, maxPages-1)
 		}
 		if err := engine.loadMoreSourceCatalogPages(ctx, source, limit); err != nil {
 			return err
