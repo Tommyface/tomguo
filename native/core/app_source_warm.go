@@ -43,7 +43,7 @@ func (engine *nativeEngine) warmCatalogs(ctx context.Context, sources []string, 
 	seen := map[string]bool{}
 	for _, source := range sources {
 		key := canonicalProviderSource(strings.ToLower(strings.TrimSpace(source)))
-		if key == "" || seen[key] || isRetiredSource(key) {
+		if key == "" || seen[key] || !sourceInstalled(key) {
 			continue
 		}
 		seen[key] = true
