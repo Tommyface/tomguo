@@ -491,6 +491,7 @@ func nativeDispatch(input nativeInput) (any, error) {
 			}
 			boards = append(boards, board)
 		}
+		boards = engine.appendModuleRankingBoards(boards)
 		return map[string]any{"items": boards}, nil
 	case "rankings":
 		return engine.nativeRanking(ctx, input)
