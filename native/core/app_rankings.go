@@ -59,6 +59,15 @@ func (d *Downloader) writeRankingCacheLocked() {
 
 func (engine *nativeEngine) nativeRanking(ctx context.Context, input nativeInput) (any, error) {
 	board, found := findRankingBoard(input.Board)
+	if !found {
+		// 模块榜单板是运行时按分类生成的，不在内置表里。
+		for _, candidate := range engine.appendModuleRankingBoardsWith(ctx, nil) {
+			if candidate.ID == input.Board {
+				board, found = candidate, true
+				break
+			}
+		}
+	}
 	if !found || !nativeSourceAvailable(board.Source) {
 		return nil, errNativeBuildSource
 	}
