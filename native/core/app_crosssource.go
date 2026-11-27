@@ -181,7 +181,7 @@ func (engine *nativeEngine) nativeCrossSource(ctx context.Context, input nativeI
 		wg        sync.WaitGroup
 	)
 	sem := make(chan struct{}, 3) // 并发 3，别把站点打急
-	for _, source := range append(crossSourceOrder, moduleCrossSourceOrder()...) {
+	for _, source := range aggregateSourceIDs() {
 		source := source
 		wg.Add(1)
 		go func() {
