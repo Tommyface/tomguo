@@ -95,9 +95,7 @@ func LoadModules(dataDir string) ([]moduleManifest, error) {
 			}
 			continue
 		}
-		moduleRegistry.Lock()
-		moduleRegistry.modules[module.manifest.ID] = module
-		moduleRegistry.Unlock()
+		storeModule(module)
 		loaded = append(loaded, module.manifest)
 	}
 	return loaded, firstErr
