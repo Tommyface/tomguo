@@ -339,6 +339,7 @@ func newNativeEngine(directory string) (*nativeEngine, error) {
 			}
 			return nil
 		}}
+	setActiveDownloader(d)
 	if _, err := LoadModules(directory); err != nil {
 		d.recordDiagnostic(diagnosticEvent{Level: "warn", Event: "modules", Message: err.Error()})
 	}
