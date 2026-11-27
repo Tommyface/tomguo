@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/dop251/goja"
@@ -45,7 +46,11 @@ type jsInstance struct {
 	invoke goja.Callable
 	ctx    context.Context
 	loop   *eventloop.EventLoop
+	dead   uint32
 }
+
+func (i *jsInstance) retire()      { atomic.StoreUint32(&i.dead, 1) }
+func (i *jsInstance) isDead() bool { return atomic.LoadUint32(&i.dead) != 0 }
 
 // moduleHost 是模块可用的宿主能力：请求与限速。
 type moduleHost interface {
@@ -75,6 +80,8 @@ func newJSProvider(module *jsModule) *jsProvider {
 // 同步模块（api 1）与异步模块（api 2）共用 moduleInvoker 的 callback 协议：
 // 两者都会在回调里返回 (jsonText, errorText)，因此调用方不关心模块是哪种协议。
 // eventloop 让 JS 的 await / Promise.all 真正可并发，超时则通过 Interrupt 打断。
+var errModuleLoopDead = errors.New("模块运行环境已停止")
+
 func (p *jsProvider) call(ctx context.Context, function string, result any, arguments ...any) error {
 	callCtx, cancel := context.WithTimeout(ctx, moduleCallTimeout)
 	defer cancel()
@@ -82,15 +89,28 @@ func (p *jsProvider) call(ctx context.Context, function string, result any, argu
 	if err != nil {
 		return err
 	}
-	instance, err := p.acquire(callCtx)
-	if err != nil {
+	for attempt := 0; attempt < moduleCallRetries; attempt++ {
+		instance, err := p.acquire(callCtx)
+		if err != nil {
+			return err
+		}
+		err = p.callOnInstance(callCtx, instance, function, result, encoded)
+		if errors.Is(err, errModuleLoopDead) {
+			instance.retire()
+			continue
+		}
 		return err
 	}
+	return errModuleLoopDead
+}
+
+func (p *jsProvider) callOnInstance(callCtx context.Context, instance *jsInstance, function string, result any, encoded []byte) error {
 	// 只有 loop 仍存活时才把实例放回空闲池；超时后 loop 已 Terminate，
-	// 放回池里会让下一次调用拿到死实例（第二次调用必失败）。
+	// 放回池里会让下一次调用拿到死实例。
 	reusable := false
 	defer func() {
-		if reusable {
+		if reusable && !instance.isDead() {
+			instance.ctx = context.Background()
 			p.idle <- instance
 		} else {
 			<-p.slots
@@ -130,17 +150,19 @@ func (p *jsProvider) call(ctx context.Context, function string, result any, argu
 		}
 	})
 	if !queued {
-		return errors.New("模块运行环境已停止")
+		return errModuleLoopDead
 	}
 
 	select {
 	case <-callCtx.Done():
+		instance.retire()
 		instance.loop.Terminate()
 		return callCtx.Err()
 	case <-started:
 	}
 	select {
 	case <-callCtx.Done():
+		instance.retire()
 		instance.loop.Terminate()
 		return callCtx.Err()
 	case got := <-done:
@@ -173,22 +195,36 @@ func moduleError(ctx context.Context, err error) error {
 }
 
 func (p *jsProvider) acquire(ctx context.Context) (*jsInstance, error) {
-	select {
-	case instance := <-p.idle:
-		return instance, nil
-	default:
-	}
-	select {
-	case instance := <-p.idle:
-		return instance, nil
-	case p.slots <- struct{}{}:
-		instance, err := p.newInstance()
-		if err != nil {
-			<-p.slots
+	for {
+		var idle *jsInstance
+		select {
+		case instance := <-p.idle:
+			idle = instance
+		default:
 		}
-		return instance, err
-	case <-ctx.Done():
-		return nil, ctx.Err()
+		if idle != nil {
+			if !idle.isDead() {
+				return idle, nil
+			}
+			<-p.slots
+			continue
+		}
+		select {
+		case instance := <-p.idle:
+			if !instance.isDead() {
+				return instance, nil
+			}
+			<-p.slots
+			continue
+		case p.slots <- struct{}{}:
+			instance, err := p.newInstance()
+			if err != nil {
+				<-p.slots
+			}
+			return instance, err
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
 	}
 }
 
