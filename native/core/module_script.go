@@ -86,7 +86,16 @@ func (p *jsProvider) call(ctx context.Context, function string, result any, argu
 	if err != nil {
 		return err
 	}
-	defer func() { p.idle <- instance }()
+	// 只有 loop 仍存活时才把实例放回空闲池；超时后 loop 已 Terminate，
+	// 放回池里会让下一次调用拿到死实例（第二次调用必失败）。
+	reusable := false
+	defer func() {
+		if reusable {
+			p.idle <- instance
+		} else {
+			<-p.slots
+		}
+	}()
 	instance.ctx = callCtx
 
 	type callbackResult struct {
@@ -135,7 +144,7 @@ func (p *jsProvider) call(ctx context.Context, function string, result any, argu
 		instance.loop.Terminate()
 		return callCtx.Err()
 	case got := <-done:
-		instance.loop.StopNoWait()
+		reusable = true
 		if got.errText != "" {
 			return errors.New(got.errText)
 		}
