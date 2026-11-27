@@ -49,6 +49,14 @@ func (d *Downloader) moduleCatalog(ctx context.Context, source string, page int,
 	return provider.CatalogPage(ctx, page, category)
 }
 
+func (d *Downloader) moduleCategories(ctx context.Context, source string, force bool) ([]jsCategory, error) {
+	provider := d.moduleProvider(source)
+	if provider == nil {
+		return nil, errModuleMissing(source)
+	}
+	return provider.Categories(ctx, force)
+}
+
 func (d *Downloader) moduleDetail(ctx context.Context, source, sourceID string) (Drama, []Chapter, error) {
 	provider := d.moduleProvider(source)
 	if provider == nil {
