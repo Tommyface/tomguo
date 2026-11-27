@@ -105,7 +105,33 @@ func TestNativeRankingBoardSupported(t *testing.T) {
 		}
 		seen[board.Source] = true
 	}
-	if !seen[sourceHongguo] || !seen[sourceHuangdou] || !seen[sourceDuanju51] {
-		t.Fatalf("supported ranking sources incomplete: %v", seen)
+	// S7 之后内置源清单为空，榜单只认仍在注册表里的源；
+	// 这里断言「至少有一个可用榜单源，且没有指向已退役源」。
+	if len(seen) == 0 {
+		t.Fatal("没有任何可用榜单源")
+	}
+	for source := range seen {
+		if !sourceInstalled(source) && !nativeSourceAvailable(source) {
+			t.Fatalf("榜单源 %q 既无内置实现也无已装模块：%v", source, seen)
+		}
+	}
+}
+
+func TestAggregateByTitleDedupesWithinSource(t *testing.T) {
+	perSource := map[string][]nativeDrama{
+		"chengguo": {
+			{ID: "cg:1", Source: "chengguo", Title: "同一部剧"},
+			{ID: "cg:2", Source: "chengguo", Title: "同一部剧 第2季"},
+		},
+		"51duanju": {
+			{ID: "51:1", Source: "51duanju", Title: "同一部剧"},
+		},
+	}
+	items := aggregateByTitleTagged(perSource, false, true)
+	if len(items) != 1 {
+		t.Fatalf("应合并为一条：%+v", items)
+	}
+	if items[0].SourceCount != 2 {
+		t.Fatalf("同源重复不应被算作多来源，实际 %d：%+v", items[0].SourceCount, items[0].Sources)
 	}
 }
