@@ -47,11 +47,12 @@ type Category struct {
 }
 
 type Meta struct {
-	ID           string   `json:"id"`
-	Name         string   `json:"name"`
-	Version      string   `json:"version,omitempty"`
-	Adult        bool     `json:"adult"`
-	Capabilities []string `json:"capabilities,omitempty"`
+	ID                string   `json:"id"`
+	Name              string   `json:"name"`
+	Version           string   `json:"version,omitempty"`
+	Adult             bool     `json:"adult"`
+	Capabilities      []string `json:"capabilities,omitempty"`
+	AllowEmptyCatalog bool     `json:"allowEmptyCatalog,omitempty"`
 }
 
 const (
