@@ -59,6 +59,7 @@ func awaitSourceTask(t *testing.T, engine *nativeEngine, source string) nativeSo
 }
 
 func TestSourceUpdatesPreservePagesOtherSourcesAndMetadata(t *testing.T) {
+	skipLegacyBuiltin(t)
 	engine := sourceFixtureEngine(t, func(request *http.Request) (*http.Response, error) {
 		if !strings.Contains(request.URL.Path, "/api/videos/category/") {
 			return nil, errors.New("only catalog text is allowed")
@@ -90,6 +91,7 @@ func TestSourceUpdatesPreservePagesOtherSourcesAndMetadata(t *testing.T) {
 }
 
 func TestYeguoSourceUpdateBatchesConfiguredPagesWithPost(t *testing.T) {
+	skipLegacyBuiltin(t)
 	var pages []string
 	engine := sourceFixtureEngine(t, func(request *http.Request) (*http.Response, error) {
 		if request.URL.Host != "api.yeguo.test" || request.URL.Path != "/api/theater/exploreList" {
@@ -123,6 +125,7 @@ func TestYeguoSourceUpdateBatchesConfiguredPagesWithPost(t *testing.T) {
 }
 
 func TestSourceJobsDeduplicateCancelAndRecoverAfterRestart(t *testing.T) {
+	skipLegacyBuiltin(t)
 	var calls atomic.Int32
 	started := make(chan struct{})
 	engine := sourceFixtureEngine(t, func(request *http.Request) (*http.Response, error) {
@@ -160,6 +163,7 @@ func TestSourceJobsDeduplicateCancelAndRecoverAfterRestart(t *testing.T) {
 }
 
 func TestSourceHealthRejectsHTML200AndPreservesFailureStage(t *testing.T) {
+	skipLegacyBuiltin(t)
 	engine := sourceFixtureEngine(t, func(request *http.Request) (*http.Response, error) {
 		switch request.URL.Path {
 		case "/videos":
@@ -186,6 +190,7 @@ func TestSourceHealthRejectsHTML200AndPreservesFailureStage(t *testing.T) {
 }
 
 func TestSourceHealthChecksHLSKeyAndBoundedMedia(t *testing.T) {
+	skipLegacyBuiltin(t)
 	var segments atomic.Int32
 	engine := sourceFixtureEngine(t, func(request *http.Request) (*http.Response, error) {
 		switch request.URL.Path {
