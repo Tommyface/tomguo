@@ -191,6 +191,7 @@ func (p *jsProvider) newInstance() (*jsInstance, error) {
 		loop.Run(func(vm *goja.Runtime) {
 			instance.vm = vm
 			vm.SetFieldNameMapper(goja.TagFieldNameMapper("json", true))
+			installModuleGlobals(vm, p, instance)
 			module, exports := vm.NewObject(), vm.NewObject()
 			if err := module.Set("exports", exports); err != nil {
 				ready <- err
