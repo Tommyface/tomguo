@@ -84,6 +84,7 @@ class _SourcesScreenState extends State<SourcesScreen> {
               ),
             ),
       );
+      widget.store.notifySourcesChanged();
       if (mounted) setState(() {});
     } catch (_) {}
   }
