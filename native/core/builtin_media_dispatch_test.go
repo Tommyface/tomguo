@@ -28,12 +28,15 @@ func TestResolveProviderMediaHasNoSourceBranches(t *testing.T) {
 	if start < 0 {
 		t.Fatal("找不到 resolveProviderMedia")
 	}
-	rest := src[start:]
-	end := indexOf(rest, "\nfunc (d *Downloader) finishProviderMedia(")
-	if end < 0 {
-		t.Fatal("找不到 finishProviderMedia")
+	// 终止锚点：下一个顶层函数声明。finishProviderMedia 已在 S7 清理中移除，
+	// 不能再拿它当边界，否则锚点缺失会让这条回归锁永远失效。
+	rest := src[start+1:]
+	var body string
+	if end := indexOf(rest, "\nfunc "); end < 0 {
+		body = rest
+	} else {
+		body = rest[:end]
 	}
-	body := rest[:end]
 	if contains(body, "chapter.Source == source") {
 		t.Error("resolveProviderMedia 又出现了 chapter.Source == sourceXxx 分支")
 	}
