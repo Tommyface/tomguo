@@ -126,6 +126,7 @@ func rankingHTTPResponse(request *http.Request, status int, body string) *http.R
 }
 
 func TestRankingCacheAndStaleRecovery(t *testing.T) {
+	skipLegacyBuiltin(t)
 	board, _ := findRankingBoard("hongguo-hot")
 	var calls atomic.Int32
 	var fail atomic.Bool
