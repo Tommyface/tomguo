@@ -102,9 +102,18 @@ func TestContractDetectsDuplicateItems(t *testing.T) {
 	}
 }
 
-func TestContractDetectsEmptyIDs(t *testing.T) {
+func TestContractAllowsSingleDefaultCategory(t *testing.T) {
 	s := validStub()
-	s.cats = []Category{{ID: "", Name: "空分类"}}
+	s.cats = []Category{{ID: "", Name: "全部"}}
+	report := ReportContract(context.Background(), s, ContractOptions{})
+	if !report.Passed {
+		t.Fatalf("空 id 的默认分类应合法：%+v", report)
+	}
+}
+
+func TestContractRejectsDuplicateDefaultCategory(t *testing.T) {
+	s := validStub()
+	s.cats = []Category{{ID: "", Name: "全部"}, {ID: "", Name: "默认"}}
 	violations := CheckContract(context.Background(), s, ContractOptions{})
 	found := false
 	for _, v := range violations {
@@ -113,7 +122,7 @@ func TestContractDetectsEmptyIDs(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatalf("空 id 分类应记为违规：%v", violations)
+		t.Fatalf("重复默认分类应记为违规：%v", violations)
 	}
 }
 
