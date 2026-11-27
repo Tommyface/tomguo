@@ -2,11 +2,25 @@ package core
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
 
 	"duanjuapp/native/source"
 )
+
+const sourceCapabilityCatalog = source.CapabilityCatalog
+
+// classifyAggregateError 把聚合路径的错误分成可重试与不可重试。
+func classifyAggregateError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, errSourceRetired) {
+		return source.Permanent("catalog", err)
+	}
+	return source.Transient("catalog", err)
+}
 
 // moduleSourceHandler 把 JS 模块包装成 source.Handler。
 // 只做模型转换与参数映射，不含任何站点解析逻辑。
