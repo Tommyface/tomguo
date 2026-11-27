@@ -63,7 +63,15 @@ func nativeAuthorizeInput(input nativeInput) error {
 		}
 	case "rankings":
 		board, found := findRankingBoard(input.Board)
-		if !found || !nativeSourceAvailable(board.Source) {
+		if found {
+			if !nativeSourceAvailable(board.Source) {
+				return errNativeBuildSource
+			}
+			return nil
+		}
+		// 模块榜单板由分类动态生成，ID 形如 <source>-<category>，不在这张内置表里。
+		source, ok := moduleRankingBoardSource(input.Board)
+		if !ok || !nativeSourceAvailable(source) {
 			return errNativeBuildSource
 		}
 	case "catalog", "cached", "categories", "sourceStatus", "sourceJob", "cancelSourceJob":
