@@ -60,12 +60,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Timer? _debounce;
   late SourceSite _source;
   bool _allSources = false;
-  // 站源整合：发现页默认走聚合视图，可切回「按站源浏览」。
+  // 站源整合：发现页默认走「同名合并」，同一部剧跨站源合成一条，
+  // 点进详情显示有几条线路；需要看单个站源时切回「按站源浏览」。
   final _aggregate = AggregateController();
-  // 默认走「按站源浏览」（切换按钮），聚合视图是可选模式。
-  // 两套浏览方式同时激活时会互相干扰：聚合视图拉多源、切换按钮拉单源，
-  // 用户设了筛选范围之后更明显（刷新慢、切了源结果不变）。
-  bool _aggregateFirst = false;
+  bool _aggregateFirst = true;
   List<Drama> _items = [];
   bool _loading = true;
   bool _loadingMore = false;
@@ -1196,10 +1194,10 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                         child: const Text('更新剧库'),
                       ),
-                    if (_tab == tabDiscover)
-                      PopupMenuItem(
+                    if (_tab == tabDiscover && !_aggregateFirst)
+                      const PopupMenuItem(
                         value: 'aggregate',
-                        child: Text(_aggregateFirst ? '按站源浏览' : '聚合视图'),
+                        child: Text('切换到同名合并'),
                       ),
                     if (widget.repository.supportsSourceManagement)
                       const PopupMenuItem(
