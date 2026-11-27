@@ -146,10 +146,6 @@ class _AppBootstrapState extends State<AppBootstrap>
                 : 'phone',
           );
           LanController.current = link;
-          // 冷启动：把本地保存的自定义站源注入原生解析器，并注册到可见列表。
-          unawaited(_restoreCustomSources());
-          // 冷启动：把已安装的站源模块注册到可见列表。
-          unawaited(_restoreModules());
           link.openPlayback = (request) async {
             final epoch = request.profileEpoch;
             if (request.cancelled ||
@@ -188,6 +184,10 @@ class _AppBootstrapState extends State<AppBootstrap>
           };
         });
       }
+      // 模块与自定义站源必须在首帧渲染前注册完：首页只在 store.sources
+      // 非空时才去拉剧库，注册晚一步就会看到「暂无可用站源」。
+      await _restoreCustomSources();
+      await _restoreModules();
     } catch (failure) {
       if (mounted) {
         setState(() {
@@ -198,22 +198,31 @@ class _AppBootstrapState extends State<AppBootstrap>
   }
 
   /// 冷启动时把已安装的站源模块注册到 Dart 可见列表。
+  ///
+  /// 冷启动会同时发起快照同步与剧库读取，慢源能把 isolate 池占满，
+  /// modules 请求排在后面会撞上 70 秒超时——注册一旦失败，整个会话都
+  /// 看不到站源。所以这里按退避重试，直到拿到模块清单为止。
   Future<void> _restoreModules() async {
-    try {
-      final modules = await repository.modules();
-      SourceSite.registerModules(
-        modules
-            .where((module) => module.installed)
-            .map(
-              (module) => SourceSite(
-                module.id,
-                module.name,
-                module.description.isEmpty ? '站源模块' : module.description,
+    for (var attempt = 1; attempt <= 4; attempt++) {
+      try {
+        final modules = await repository.modules();
+        SourceSite.registerModules(
+          modules
+              .where((module) => module.installed)
+              .map(
+                (module) => SourceSite(
+                  module.id,
+                  module.name,
+                  module.description.isEmpty ? '站源模块' : module.description,
+                ),
               ),
-            ),
-      );
-    } catch (error) {
-      DiaryService.add('[站源模块] 注册失败: $error');
+        );
+        return;
+      } catch (error) {
+        DiaryService.add('[站源模块] 注册失败(第 $attempt 次): $error');
+        if (attempt == 4) return;
+        await Future<void>.delayed(Duration(seconds: attempt * 2));
+      }
     }
   }
 
