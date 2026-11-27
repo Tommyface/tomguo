@@ -138,9 +138,7 @@ func (engine *nativeEngine) installModule(zipPath string) (moduleStatus, error) 
 		_ = os.RemoveAll(target)
 		return moduleStatus{}, err
 	}
-	moduleRegistry.Lock()
-	delete(moduleRegistry.modules, manifest.ID)
-	moduleRegistry.Unlock()
+	dropModule(manifest.ID)
 	if _, err := LoadModules(engine.directory); err != nil {
 		return moduleStatus{}, err
 	}
@@ -161,9 +159,7 @@ func (engine *nativeEngine) removeModule(id string) error {
 	if !moduleIDPattern.MatchString(id) {
 		return errors.New("模块标识无效")
 	}
-	moduleRegistry.Lock()
-	delete(moduleRegistry.modules, id)
-	moduleRegistry.Unlock()
+	dropModule(id)
 	// 卸载即清空该模块的存储，避免残留令牌与设备标识。
 	DropModuleStorage(id)
 	target := filepath.Join(moduleRoot(engine.directory), id)
