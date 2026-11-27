@@ -4,28 +4,22 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 )
 
-func TestRetiredSourcesAreMarkedDisabled(t *testing.T) {
+// S7 完成后内置源清单为空，站源只来自已安装模块；
+// 模块清单不应再出现任何已退役的内置源。
+func TestRetiredBuiltinSourcesAbsentFromModuleList(t *testing.T) {
 	engine := &nativeEngine{sourceProbes: map[string]nativeSourceProbe{}}
-	items := engine.listModules()
-	byID := map[string]moduleStatus{}
-	for _, item := range items {
-		byID[item.ID] = item
-	}
-	for _, id := range []string{sourceHuangguoAI, sourceHuangguoVideo, sourceYeguo, sourceDSD, sourceSorani, sourceChengguo} {
-		status, found := byID[id]
-		if !found {
-			t.Fatalf("source %q missing from module list", id)
-		}
-		if !status.Disabled || status.DisabledReason == "" {
-			t.Fatalf("source %q should be disabled, got %#v", id, status)
+	for _, item := range engine.listModules() {
+		if isRetiredSource(item.ID) {
+			t.Fatalf("退役内置源不应出现在模块清单：%q", item.ID)
 		}
 	}
-	if status := byID[sourceHongguo]; status.Disabled {
-		t.Fatalf("healthy source marked disabled: %#v", status)
+	for _, id := range []string{sourceHuangguoAI, sourceYeguo, sourceSorani, sourceChengguo} {
+		if isRetiredSource(id) {
+			t.Fatalf("内置源清单为空时 %q 不应被判为退役源", id)
+		}
 	}
 }
 
@@ -46,10 +40,11 @@ func TestProbeSourcesHidesUnreachableSource(t *testing.T) {
 	}
 }
 
-func TestRetiredSourceCatalogIsRejected(t *testing.T) {
+// 内置源已清空，未安装的站源应被入口拒绝，而不是返回空目录。
+func TestUnknownSourceCatalogIsRejected(t *testing.T) {
 	engine := &nativeEngine{catalogs: map[string][]nativeDrama{}, catalogStates: map[string]nativeCatalogState{}, sourceProbes: map[string]nativeSourceProbe{}}
 	_, err := engine.nativeCatalog(context.Background(), nativeInput{Source: sourceHuangguoAI, Page: 1})
-	if err == nil || !strings.Contains(err.Error(), "停用") {
-		t.Fatalf("retired source should be rejected, got %v", err)
+	if err == nil {
+		t.Fatal("未安装的站源应被拒绝")
 	}
 }
