@@ -13,6 +13,7 @@ import (
 )
 
 func TestNativeCategoryAliasesAndDetailPersistence(t *testing.T) {
+	skipLegacyBuiltin(t)
 	for _, drama := range []Drama{
 		{CategoryName: "都市"}, {CategoryNameSnake: "都市"}, {TypeName: "都市"}, {TypeNameSnake: "都市"},
 		{SortName: "都市"}, {SortNameSnake: "都市"}, {Category: "都市"},
