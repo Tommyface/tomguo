@@ -89,13 +89,12 @@ func singlePageRankingBoard(board rankingBoard) bool {
 
 // nativeRankingBoardSupported 判断该榜单的站源在当前构建里有没有真实抓取实现。
 // 没有实现的榜单项不能在 UI 里出现，否则点了只会报错。
+//
+// S7 之后内置榜单源（hongguo/huangdou/huangju）的 Go 实现已全部移除，
+// 只有同名模块接管时才算有实现；模块自带榜单分类的板子由
+// appendModuleRankingBoards 另行生成。
 func nativeRankingBoardSupported(board rankingBoard) bool {
-	switch board.Source {
-	case sourceHongguo, sourceHuangdou, sourceHuangju:
-		return true
-	default:
-		return false
-	}
+	return moduleTakesOver(board.Source)
 }
 
 func rankingDramaWithoutImages(drama Drama) Drama {
@@ -171,6 +170,9 @@ func (d *Downloader) loadRankingPage(ctx context.Context, board rankingBoard, pa
 }
 
 func (d *Downloader) fetchRankingPage(ctx context.Context, board rankingBoard, page int) (rankingPage, error) {
+	if moduleTakesOver(board.Source) {
+		return d.fetchModuleRankingPage(ctx, board, page)
+	}
 	switch board.Source {
 	case sourceHongguo:
 		return d.fetchHongguoRankingPage(ctx, board, page)
@@ -196,6 +198,86 @@ func (d *Downloader) fetchRankingPage(ctx context.Context, board rankingBoard, p
 	default:
 		return rankingPage{}, fmt.Errorf("不支持的榜单站源 %s", board.Source)
 	}
+}
+
+// fetchModuleRankingPage 用模块的目录能力实现榜单：模块分类里带「榜」的
+// 分类会被登记为榜单板，这里按分类名取目录第一页作为榜单内容。
+func (d *Downloader) fetchModuleRankingPage(ctx context.Context, board rankingBoard, page int) (rankingPage, error) {
+	if page != 1 {
+		return rankingPage{}, errors.New("该榜单只有一页")
+	}
+	category := board.path
+	if category == "" {
+		return rankingPage{}, errors.New("榜单分类缺失")
+	}
+	items, _, err := d.moduleCatalog(ctx, board.Source, 1, category, "")
+	if err != nil {
+		return rankingPage{}, err
+	}
+	out := rankingPage{BoardID: board.ID, Page: 1}
+	for index, drama := range items {
+		out.Items = append(out.Items, rankingItem{Rank: index + 1, Drama: drama})
+	}
+	out.TotalPages = 1
+	return out, nil
+}
+
+// appendModuleRankingBoards 把模块里带「榜」的分类登记成榜单板。
+//
+// 内置榜单源在 S7 已全部移除，硬编码白名单会让榜单永远为空。模块只要
+// 暴露了榜单分类（如 51短剧的「热播榜」），就直接变成可点的榜单板，
+// 数据走 moduleCatalog，不依赖任何 Go 侧站点实现。
+func (engine *nativeEngine) appendModuleRankingBoards(boards []rankingBoard) []rankingBoard {
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	return engine.appendModuleRankingBoardsWith(ctx, boards)
+}
+
+func (engine *nativeEngine) appendModuleRankingBoardsWith(ctx context.Context, boards []rankingBoard) []rankingBoard {
+	seen := make(map[string]bool, len(boards))
+	for _, board := range boards {
+		seen[board.ID] = true
+	}
+	for _, manifest := range ModuleManifests() {
+		source := canonicalProviderSource(manifest.ID)
+		if source == "" || !moduleTakesOver(source) || isRetiredSource(source) {
+			continue
+		}
+		categories, err := engine.downloader.moduleCategories(ctx, source, false)
+		if err != nil {
+			continue
+		}
+		for _, category := range categories {
+			if category.ID == "" || !strings.Contains(category.Name, "榜") {
+				continue
+			}
+			id := source + "-" + category.ID
+			if seen[id] {
+				continue
+			}
+			seen[id] = true
+			boards = append(boards, rankingBoard{
+				ID: id, Source: source, Name: category.Name,
+				Description: manifest.Name + "站点「" + category.Name + "」实时顺序。",
+				path:        category.ID,
+			})
+		}
+	}
+	return boards
+}
+
+// moduleRankingBoardSource 从模块榜单板 ID（<source>-<category>）解析出站源。
+func moduleRankingBoardSource(boardID string) (string, bool) {
+	for _, manifest := range ModuleManifests() {
+		source := canonicalProviderSource(manifest.ID)
+		if source == "" {
+			continue
+		}
+		if strings.HasPrefix(boardID, source+"-") && len(boardID) > len(source)+1 {
+			return source, true
+		}
+	}
+	return "", false
 }
 
 func (d *Downloader) fetchCatalogRankingPage(ctx context.Context, board rankingBoard, page int) (rankingPage, error) {
