@@ -117,6 +117,8 @@ class LocalStore extends ChangeNotifier {
     if (!_disposed) notifyListeners();
   }
 
+  void notifySourcesChanged() => _notify();
+
   String? _string(String key) => _snapshot?.getString(key);
   bool? _bool(String key) => _snapshot?.getBool(key);
   String _key(String key, [String? id]) =>
