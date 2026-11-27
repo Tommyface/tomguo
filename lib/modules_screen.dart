@@ -42,14 +42,18 @@ class _ModulesScreenState extends State<ModulesScreen> {
       if (!mounted) return;
       setState(() {
         _modules = modules;
-        _loading = false;
       });
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _error = error.toString();
-        _loading = false;
       });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
     }
   }
 
@@ -200,6 +204,7 @@ class _ModulesScreenState extends State<ModulesScreen> {
               ),
             ),
       );
+      widget.store.notifySourcesChanged();
     } catch (_) {}
   }
 
