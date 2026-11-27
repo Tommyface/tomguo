@@ -26,6 +26,15 @@ import (
 // 又不会把「重生之都市修仙 / 重生之都市修神」误并（后者约 0.89）。
 const titleMatchThreshold = 0.92
 
+// bigramDiceThreshold / lcsThreshold / titleVoteMin 构成三算法投票。
+// bigram 对词序重排鲁棒，LCS 对增删中段鲁棒，Jaro-Winkler 对前缀相同鲁棒；
+// 三者取两票，既补上单算法的盲区，又靠多数决压住误合并。
+const (
+	bigramDiceThreshold = 0.80
+	lcsThreshold        = 0.72
+	titleVoteMin        = 2
+)
+
 // titleLengthRatioGuard 长度差超过该比例直接判不同，跳过相似度计算。
 // 用于把聚类从 O(n²) 压到近似线性。
 const titleLengthRatioGuard = 0.4
@@ -525,7 +534,75 @@ func titlesMatch(left, right string) bool {
 	if long == "" || float64(len(long)-len(short))/float64(len(long)) > titleLengthRatioGuard {
 		return false
 	}
-	return jaroWinkler(left, right) >= titleMatchThreshold
+	return titleVoteCount(left, right) >= titleVoteMin
+}
+
+// titleVoteCount 返回三个相似度算法中达到各自阈值的票数。
+// titlesMatch 的守卫已先行排除长度悬殊与一字之差，这里只做多数决。
+func titleVoteCount(left, right string) int {
+	votes := 0
+	if jaroWinkler(left, right) >= titleMatchThreshold {
+		votes++
+	}
+	if bigramDice(left, right) >= bigramDiceThreshold {
+		votes++
+	}
+	if lcsRatio(left, right) >= lcsThreshold {
+		votes++
+	}
+	return votes
+}
+
+// bigramDice 用相邻二元组交集的 Dice 系数衡量相似度（0~1）。
+// 对词序重排鲁棒：顺序换了但二元组集合基本不变。中文按 rune 比较。
+func bigramDice(left, right string) float64 {
+	a, b := []rune(strings.ReplaceAll(left, " ", "")), []rune(strings.ReplaceAll(right, " ", ""))
+	if len(a) == 0 || len(b) == 0 {
+		return 0
+	}
+	if string(a) == string(b) {
+		return 1
+	}
+	if len(a) < 2 || len(b) < 2 {
+		return 0
+	}
+	counts := make(map[string]int, len(a)-1)
+	for i := 0; i+1 < len(a); i++ {
+		counts[string(a[i:i+2])]++
+	}
+	intersection := 0
+	for i := 0; i+1 < len(b); i++ {
+		gram := string(b[i : i+2])
+		if counts[gram] > 0 {
+			counts[gram]--
+			intersection++
+		}
+	}
+	return float64(2*intersection) / float64(len(a)+len(b)-2)
+}
+
+// lcsRatio 用最长公共子序列占两串平均长度的比例衡量相似度（0~1）。
+// 对中段增删鲁棒。长度上限由 titlesMatch 的长度比守卫约束，这里无需额外裁剪。
+func lcsRatio(left, right string) float64 {
+	a, b := []rune(left), []rune(right)
+	if len(a) == 0 || len(b) == 0 {
+		return 0
+	}
+	previous := make([]int, len(b)+1)
+	current := make([]int, len(b)+1)
+	for i := 1; i <= len(a); i++ {
+		for j := 1; j <= len(b); j++ {
+			if a[i-1] == b[j-1] {
+				current[j] = previous[j-1] + 1
+			} else if previous[j] >= current[j-1] {
+				current[j] = previous[j]
+			} else {
+				current[j] = current[j-1]
+			}
+		}
+		previous, current = current, previous
+	}
+	return float64(2*previous[len(b)]) / float64(len(a)+len(b))
 }
 
 // jaroWinkler 计算两个字符串的 Jaro-Winkler 相似度（0~1）。
