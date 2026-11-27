@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"sync"
 
 	"duanjuapp/native/source"
 )
@@ -24,6 +25,25 @@ func classifyAggregateError(err error) error {
 
 // moduleSourceHandler 把 JS 模块包装成 source.Handler。
 // 只做模型转换与参数映射，不含任何站点解析逻辑。
+// activeDownloader 指向当前引擎的请求栈，由 initialize 设置。
+// 适配层在调用模块前必须经它绑定 host，否则 host.fetch 会因 host 为空崩溃。
+var activeDownloader struct {
+	sync.RWMutex
+	value *Downloader
+}
+
+func setActiveDownloader(d *Downloader) {
+	activeDownloader.Lock()
+	activeDownloader.value = d
+	activeDownloader.Unlock()
+}
+
+func currentDownloader() *Downloader {
+	activeDownloader.RLock()
+	defer activeDownloader.RUnlock()
+	return activeDownloader.value
+}
+
 type moduleSourceHandler struct {
 	provider *jsProvider
 }
@@ -32,8 +52,17 @@ func newModuleSourceHandler(provider *jsProvider) *moduleSourceHandler {
 	return &moduleSourceHandler{provider: provider}
 }
 
+// activeProvider 在调用前给自身 provider 绑定 host。
+// 不能按 id 反查模块：测试与热更新场景下注册表中的实例未必等于 handler 持有的实例。
+func (h *moduleSourceHandler) activeProvider() *jsProvider {
+	if d := currentDownloader(); d != nil {
+		h.provider.host = downloaderModuleHost{d: d}
+	}
+	return h.provider
+}
+
 func (h *moduleSourceHandler) Categories(ctx context.Context, force bool) ([]source.Category, error) {
-	items, err := h.provider.Categories(ctx, force)
+	items, err := h.activeProvider().Categories(ctx, force)
 	if err != nil {
 		return nil, source.Transient("categories", err)
 	}
@@ -45,7 +74,7 @@ func (h *moduleSourceHandler) Categories(ctx context.Context, force bool) ([]sou
 }
 
 func (h *moduleSourceHandler) Catalog(ctx context.Context, page int, category string) ([]source.CatalogItem, bool, error) {
-	dramas, more, err := h.provider.CatalogPage(ctx, page, category)
+	dramas, more, err := h.activeProvider().CatalogPage(ctx, page, category)
 	if err != nil {
 		return nil, false, source.Transient("catalog", err)
 	}
@@ -53,7 +82,7 @@ func (h *moduleSourceHandler) Catalog(ctx context.Context, page int, category st
 }
 
 func (h *moduleSourceHandler) Search(ctx context.Context, page int, query string) ([]source.CatalogItem, bool, error) {
-	dramas, more, err := h.provider.Search(ctx, page, query)
+	dramas, more, err := h.activeProvider().Search(ctx, page, query)
 	if err != nil {
 		return nil, false, source.Transient("search", err)
 	}
@@ -61,7 +90,7 @@ func (h *moduleSourceHandler) Search(ctx context.Context, page int, query string
 }
 
 func (h *moduleSourceHandler) Detail(ctx context.Context, sourceID string) (source.DramaDetail, error) {
-	drama, chapters, err := h.provider.Detail(ctx, sourceID)
+	drama, chapters, err := h.activeProvider().Detail(ctx, sourceID)
 	if err != nil {
 		return source.DramaDetail{}, source.Transient("detail", err)
 	}
@@ -98,7 +127,7 @@ func (h *moduleSourceHandler) Stream(ctx context.Context, request source.StreamR
 	if request.Episode.Number > 0 {
 		task.Chapter.CurrentEpisode = []byte(strconv.Quote(strconv.Itoa(request.Episode.Number)))
 	}
-	media, err := h.provider.ResolveMedia(ctx, task)
+	media, err := h.activeProvider().ResolveMedia(ctx, task)
 	if err != nil {
 		return source.MediaStream{}, source.Transient("stream", err)
 	}
