@@ -39,6 +39,10 @@ func validNativeCategory(source, category string) bool {
 	if len(category) > 128 || strings.ContainsAny(category, "|/\\\x00\r\n") {
 		return false
 	}
+	// 模块自己声明的分类由模块负责解释，宿主只做通用字符校验。
+	if moduleTakesOver(canonicalProviderSource(source)) {
+		return true
+	}
 	switch source {
 	case sourceHuangguoAI:
 		for _, entry := range nativeAICategories {
@@ -64,6 +68,28 @@ func validNativeCategory(source, category string) bool {
 func (engine *nativeEngine) nativeCategories(ctx context.Context, source string, force bool) ([]nativeCategory, error) {
 	source = canonicalProviderSource(source)
 	all := []nativeCategory{{Name: "全部"}}
+	if moduleTakesOver(source) {
+		items, err := engine.downloader.moduleCategories(ctx, source, force)
+		if err != nil {
+			return nil, err
+		}
+		for _, item := range items {
+			if validNativeCategory(source, item.ID) && item.Name != "" {
+				all = append(all, nativeCategory{ID: item.ID, Name: item.Name})
+			}
+		}
+		if len(all) == 1 {
+			return nil, errors.New("站源暂未返回内容分类，请稍后重试")
+		}
+		engine.mu.Lock()
+		if engine.categoryOptions == nil {
+			engine.categoryOptions = map[string][]nativeCategory{}
+		}
+		engine.categoryOptions[source] = all
+		engine.mu.Unlock()
+		engine.scheduleCatalogSaveLocked()
+		return all, nil
+	}
 	switch source {
 	case sourceHuangguoAI:
 		return append(all, nativeAICategories...), nil
