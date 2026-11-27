@@ -496,6 +496,19 @@ func normalizeTitle(title string) string {
 	return builder.String()
 }
 
+// genericTitlePattern 匹配不是剧名的占位标题：时间标记、状态词、纯数字等。
+// 这类文本被多源共用，若参与同名合并会把无关条目聚成一张卡。
+var genericTitlePattern = regexp.MustCompile(`^(?:[0-9]+(?:个月|天|小时|分钟|年|月|周)[前后]?|全部|所有|完结|全集|大结局|预告|花絮|正在更新|暂无标题|未知|默认|更多|其他|热播|推荐|精选|_count\b.*)$`)
+
+// isGenericAggregateTitle 判断标题是否是不能作为聚合键的占位文本。
+func isGenericAggregateTitle(title string) bool {
+	key := aggregateTitleKey(title)
+	if key == "" || len([]rune(key)) < 2 {
+		return true
+	}
+	return genericTitlePattern.MatchString(key) || genericTitlePattern.MatchString(strings.TrimSpace(title))
+}
+
 // aggregateTitleKey 是一段式入口：剥离 + 归一化，供分桶使用。
 func aggregateTitleKey(title string) string {
 	return normalizeTitle(stripTitleNoise(title))
