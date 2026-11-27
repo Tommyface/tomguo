@@ -68,9 +68,17 @@ String _nativeRequest(String body) {
 abstract final class _NativeWorkers {
   static const int _maxIdle = 8;
   static final List<SendPort> _idle = <SendPort>[];
+  // 管理类动作（modules / 安装 / 卸载）不能被数据拉取堵住：慢源一次
+  // 请求就能占满共享池，冷启动的模块注册会排在后面直到超时。
+  static final List<SendPort> _adminIdle = <SendPort>[];
 
-  static Future<String> request(String body, {required Duration timeout}) async {
-    final worker = _idle.isNotEmpty ? _idle.removeLast() : await _spawn();
+  static Future<String> request(
+    String body, {
+    required Duration timeout,
+    bool dedicated = false,
+  }) async {
+    final pool = dedicated ? _adminIdle : _idle;
+    final worker = pool.isNotEmpty ? pool.removeLast() : await _spawn();
     final reply = ReceivePort();
     var reusable = false;
     try {
@@ -86,7 +94,7 @@ abstract final class _NativeWorkers {
       reply.close();
       // 超时/异常时丢弃该 worker：任务仍可能在那边跑，归还会让后续请求
       // 排队到它后面，反而放大一次超时的代价。
-      if (reusable && _idle.length < _maxIdle) _idle.add(worker);
+      if (reusable && pool.length < _maxIdle) pool.add(worker);
     }
   }
 
@@ -760,6 +768,12 @@ class NativeRepository extends AppRepository {
       final body = jsonEncode(input);
       final encoded = await _NativeWorkers.request(
         body,
+        dedicated: const {
+          'modules',
+          'installModule',
+          'installFromRegistry',
+          'removeModule',
+        }.contains(action),
         timeout: Duration(
           seconds: action == 'moveDownloads'
               ? 620
