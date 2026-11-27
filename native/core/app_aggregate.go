@@ -228,15 +228,25 @@ func aggregateByTitle(perSource map[string][]nativeDrama, adultView bool) []nati
 // aggregateByTitleTagged 在 sourcesTagged 时不再按模块清单判断成人源，改用调用方给的源集合。
 func aggregateByTitleTagged(perSource map[string][]nativeDrama, adultView, sourcesTagged bool) []nativeAggregateItem {
 	buckets := map[string][]nativeDrama{}
+	// 同一源里可能有多个同名条目（分季/重复上架），只保留一条参与跨源合并，
+	// 否则 sourceCount 会把同一个源算成多个来源。
+	seenInSource := map[string]map[string]bool{}
 	for source, items := range perSource {
 		if !sourcesTagged && sourceIsAdult(source) != adultView {
 			continue
 		}
+		if seenInSource[source] == nil {
+			seenInSource[source] = map[string]bool{}
+		}
 		for _, item := range items {
-			key := normalizeAggregateTitle(item.Title)
-			if key == "" {
+			if isGenericAggregateTitle(item.Title) {
 				continue
 			}
+			key := normalizeAggregateTitle(item.Title)
+			if key == "" || seenInSource[source][key] {
+				continue
+			}
+			seenInSource[source][key] = true
 			buckets[key] = append(buckets[key], item)
 		}
 	}
