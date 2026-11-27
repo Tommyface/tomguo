@@ -98,13 +98,15 @@ func CheckContract(ctx context.Context, item Source, opts ContractOptions) []Con
 			seen := map[string]bool{}
 			out := []ContractViolation{}
 			for _, category := range items {
-				if category.ID == "" {
-					out = append(out, ContractViolation{Action: "categories", Reason: "返回了空 id 的分类"})
+				// 空 id 表示「全部/无分类」，是合法写法；但同一源只能有一个。
+				key := category.ID
+				if key == "" {
+					key = "<default>"
 				}
-				if seen[category.ID] {
-					out = append(out, ContractViolation{Action: "categories", Reason: "分类 id 重复：" + category.ID})
+				if seen[key] {
+					out = append(out, ContractViolation{Action: "categories", Reason: "分类 id 重复：" + key})
 				}
-				seen[category.ID] = true
+				seen[key] = true
 			}
 			return out
 		})
