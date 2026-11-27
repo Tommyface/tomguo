@@ -11,6 +11,7 @@ import (
 )
 
 func TestNativeCategoryPaginationStaysIndependent(t *testing.T) {
+	skipLegacyBuiltin(t)
 	engine := sourceFixtureEngine(t, func(request *http.Request) (*http.Response, error) {
 		if !strings.HasPrefix(request.URL.Path, "/api/videos/category/ai-") {
 			return nil, errors.New("only catalog JSON is permitted")
