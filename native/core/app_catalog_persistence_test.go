@@ -57,6 +57,7 @@ func reopenCatalogEngine(t *testing.T, directory string, transport sourceFixture
 }
 
 func TestNativeHongguoCursorRestartsPerCatalog(t *testing.T) {
+	skipLegacyBuiltin(t)
 	var calls []nativeHongguoRequest
 	var device, install string
 	transport := sourceFixtureTransport(func(request *http.Request) (*http.Response, error) {
@@ -130,6 +131,7 @@ func TestNativeHongguoCursorRestartsPerCatalog(t *testing.T) {
 }
 
 func TestNativeHongguoCursorRecoversSessionsAfterRestart(t *testing.T) {
+	skipLegacyBuiltin(t)
 	for _, scenario := range []string{"expired", "rejected", "repeated-page"} {
 		t.Run(scenario, func(t *testing.T) {
 			var calls []nativeHongguoRequest
@@ -191,6 +193,7 @@ func TestNativeHongguoCursorRecoversSessionsAfterRestart(t *testing.T) {
 }
 
 func TestNativeHongguoStalledCursorKeepsPartialItems(t *testing.T) {
+	skipLegacyBuiltin(t)
 	var calls []int
 	transport := sourceFixtureTransport(func(request *http.Request) (*http.Response, error) {
 		payload := nativeHongguoRequestForTest(t, request)
@@ -219,6 +222,7 @@ func TestNativeHongguoStalledCursorKeepsPartialItems(t *testing.T) {
 }
 
 func TestNativeCatalogPreservesLargeLibraryAndPage501(t *testing.T) {
+	skipLegacyBuiltin(t)
 	var requested string
 	engine := sourceFixtureEngine(t, func(request *http.Request) (*http.Response, error) {
 		if request.URL.Path != "/api/videos/category/ai-duanju" {
@@ -255,6 +259,7 @@ func TestNativeCatalogPreservesLargeLibraryAndPage501(t *testing.T) {
 }
 
 func TestNativeCatalogSaveFailureRetriesWithoutAdvancing(t *testing.T) {
+	skipLegacyBuiltin(t)
 	var offsets []int
 	transport := sourceFixtureTransport(func(request *http.Request) (*http.Response, error) {
 		payload := nativeHongguoRequestForTest(t, request)
@@ -319,6 +324,7 @@ func TestNativeCatalogSaveFailureRetriesWithoutAdvancing(t *testing.T) {
 }
 
 func TestNativeCatalogSizeLimitPreservesPreviousFile(t *testing.T) {
+	skipLegacyBuiltin(t)
 	var requests atomic.Int32
 	engine := sourceFixtureEngine(t, func(request *http.Request) (*http.Response, error) {
 		requests.Add(1)
@@ -348,6 +354,7 @@ func TestNativeCatalogSizeLimitPreservesPreviousFile(t *testing.T) {
 }
 
 func TestNativeCatalogMetadataSaveExcludesInFlightCursor(t *testing.T) {
+	skipLegacyBuiltin(t)
 	paused, release := make(chan struct{}), make(chan struct{})
 	transport := sourceFixtureTransport(func(request *http.Request) (*http.Response, error) {
 		payload := nativeHongguoRequestForTest(t, request)
